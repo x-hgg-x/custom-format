@@ -1,0 +1,3 @@
+[workspace]
+members = ["custom-format", "custom-format-macros"]
+default-members = ["custom-format", "custom-format-macros"]

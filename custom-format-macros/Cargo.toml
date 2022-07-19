@@ -1,0 +1,18 @@
+[package]
+name = "custom-format-macros"
+version = "0.0.1"
+edition = "2021"
+authors = ["x-hgg-x"]
+repository = "https://github.com/x-hgg-x/custom-format"
+description = "Procedural macros for the custom-format crate."
+license = "MIT OR Apache-2.0"
+keywords = ["format", "string", "fmt", "macro"]
+categories = ["rust-patterns", "value-formatting"]
+readme = "../README.md"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+litrs = { version = "0.2.3", default-features = false }
+unicode-ident = "1.0"
