@@ -3,7 +3,7 @@
 [![version](https://img.shields.io/crates/v/custom-format?color=blue&style=flat-square)](https://crates.io/crates/custom-format)
 [![Documentation](https://docs.rs/custom-format/badge.svg)](https://docs.rs/custom-format)
 
-This crate extends the current formatting syntax with custom format specifiers, by providing custom formatting macros.
+This crate extends the standard formatting syntax with custom format specifiers, by providing custom formatting macros.
 
 It uses ` :` (a space and a colon) as a separator before the format specifier, which is not a syntax currently accepted and allows supporting standard specifiers in addition to custom specifiers.
 
