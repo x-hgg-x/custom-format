@@ -1,3 +1,17 @@
 [workspace]
-members = ["custom-format", "custom-format-macros"]
-default-members = ["custom-format", "custom-format-macros"]
+members = ["custom-format-macros"]
+
+[package]
+name = "custom-format"
+version = "0.0.2"
+edition = "2021"
+authors = ["x-hgg-x"]
+repository = "https://github.com/x-hgg-x/custom-format"
+description = "Custom formatting for Rust."
+license = "MIT OR Apache-2.0"
+keywords = ["no-std", "format", "string", "fmt", "macro"]
+categories = ["no-std", "rust-patterns", "value-formatting"]
+readme = "../README.md"
+
+[dependencies]
+custom-format-macros = { version = "0.0.2", path = "custom-format-macros" }
