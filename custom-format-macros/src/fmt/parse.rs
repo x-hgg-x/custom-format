@@ -1,8 +1,5 @@
 use super::utils::StrCursor;
-use super::{ArgType, Count, Precision};
-
-use proc_macro::TokenStream;
-use std::str::FromStr;
+use super::{ArgType, Count, Id, Precision};
 
 pub(super) fn process_align(cursor: &mut StrCursor) -> [Option<char>; 2] {
     let cursor0 = cursor.clone();
@@ -134,7 +131,168 @@ pub(super) fn parse_argument<'a>(cursor: &mut StrCursor<'a>) -> Option<ArgType<'
         }
     };
 
-    assert_eq!(identifier, TokenStream::from_str(identifier).unwrap().to_string(), "identifiers in format string must be normalized in Unicode NFC");
+    Some(ArgType::Named(Id::new(identifier)))
+}
 
-    Some(ArgType::Named(identifier))
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_process_align() {
+        let data = [
+            ("^--", [Some('^'), None], "--"),
+            ("<--", [Some('<'), None], "--"),
+            (">--", [Some('>'), None], "--"),
+            ("-^-", [Some('-'), Some('^')], "-"),
+            ("-<-", [Some('-'), Some('<')], "-"),
+            ("->-", [Some('-'), Some('>')], "-"),
+            ("--^", [None, None], "--^"),
+            ("--<", [None, None], "--<"),
+            ("-->", [None, None], "-->"),
+        ];
+
+        for (fmt, output, remaining) in data {
+            let mut cursor = StrCursor::new(fmt);
+            assert_eq!(process_align(&mut cursor), output);
+            assert_eq!(cursor.remaining(), remaining);
+        }
+    }
+
+    #[test]
+    fn test_process_sign() {
+        let data = [("+000", Some('+'), "000"), ("-000", Some('-'), "000"), ("0000", None, "0000")];
+
+        for (fmt, output, remaining) in data {
+            let mut cursor = StrCursor::new(fmt);
+            assert_eq!(process_sign(&mut cursor), output);
+            assert_eq!(cursor.remaining(), remaining);
+        }
+    }
+
+    #[test]
+    fn test_process_alternate() {
+        let data = [("#0", Some('#'), "0"), ("00", None, "00")];
+
+        for (fmt, output, remaining) in data {
+            let mut cursor = StrCursor::new(fmt);
+            assert_eq!(process_alternate(&mut cursor), output);
+            assert_eq!(cursor.remaining(), remaining);
+        }
+    }
+
+    #[test]
+    fn test_process_sign_aware_zero_pad() {
+        let data = [("0123", Some('0'), "123"), ("123", None, "123")];
+
+        for (fmt, output, remaining) in data {
+            let mut cursor = StrCursor::new(fmt);
+            assert_eq!(process_sign_aware_zero_pad(&mut cursor), output);
+            assert_eq!(cursor.remaining(), remaining);
+        }
+    }
+
+    #[test]
+    fn test_parse_argument() {
+        let data = [
+            ("05sdkfh-", Some(ArgType::Positional(5)), "sdkfh-"),
+            ("_sdkfh-", Some(ArgType::Named(Id::new("_sdkfh"))), "-"),
+            ("_é€", Some(ArgType::Named(Id::new("_é"))), "€"),
+            ("é€", Some(ArgType::Named(Id::new("é"))), "€"),
+            ("@é€", None, "@é€"),
+            ("€", None, "€"),
+        ];
+
+        for (fmt, output, remaining) in data {
+            let mut cursor = StrCursor::new(fmt);
+            assert_eq!(parse_argument(&mut cursor), output);
+            assert_eq!(cursor.remaining(), remaining);
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "identifiers in format string must be normalized in Unicode NFC")]
+    fn test_parse_argument_not_nfc() {
+        parse_argument(&mut StrCursor::new("A\u{30a}"));
+    }
+
+    #[test]
+    fn test_process_width() {
+        let data = [
+            ("05sdkfh$-", Some(Count::Integer("05")), "sdkfh$-"),
+            ("05$sdkfh-", Some(Count::Argument(ArgType::Positional(5))), "sdkfh-"),
+            ("_sdkfh$-", Some(Count::Argument(ArgType::Named(Id::new("_sdkfh")))), "-"),
+            ("_é$€", Some(Count::Argument(ArgType::Named(Id::new("_é")))), "€"),
+            ("é$€", Some(Count::Argument(ArgType::Named(Id::new("é")))), "€"),
+            ("_sdkfh-$", None, "_sdkfh-$"),
+            ("_é€$", None, "_é€$"),
+            ("é€$", None, "é€$"),
+            ("@é€", None, "@é€"),
+            ("€", None, "€"),
+        ];
+
+        for (fmt, output, remaining) in data {
+            let mut cursor = StrCursor::new(fmt);
+            assert_eq!(process_width(&mut cursor), output);
+            assert_eq!(cursor.remaining(), remaining);
+        }
+    }
+
+    #[test]
+    fn test_process_precision() {
+        let data = [
+            (".*--", Some(Precision::Asterisk), "--"),
+            (".05sdkfh$-", Some(Precision::WithCount(Count::Integer("05"))), "sdkfh$-"),
+            (".05$sdkfh-", Some(Precision::WithCount(Count::Argument(ArgType::Positional(5)))), "sdkfh-"),
+            ("._sdkfh$-", Some(Precision::WithCount(Count::Argument(ArgType::Named(Id::new("_sdkfh"))))), "-"),
+            ("._é$€", Some(Precision::WithCount(Count::Argument(ArgType::Named(Id::new("_é"))))), "€"),
+            (".é$€", Some(Precision::WithCount(Count::Argument(ArgType::Named(Id::new("é"))))), "€"),
+            ("05sdkfh$-", None, "05sdkfh$-"),
+            ("05$sdkfh-", None, "05$sdkfh-"),
+            ("_sdkfh$-", None, "_sdkfh$-"),
+            ("_é$€", None, "_é$€"),
+            ("é$€", None, "é$€"),
+            ("_sdkfh-$", None, "_sdkfh-$"),
+            ("_é€$", None, "_é€$"),
+            ("é€$", None, "é€$"),
+            ("@é€", None, "@é€"),
+            ("€", None, "€"),
+        ];
+
+        for (fmt, output, remaining) in data {
+            let mut cursor = StrCursor::new(fmt);
+            assert_eq!(process_precision(&mut cursor), output);
+            assert_eq!(cursor.remaining(), remaining);
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid count in format string")]
+    fn test_process_precision_invalid_1() {
+        process_precision(&mut StrCursor::new("._sdkfh-$"));
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid count in format string")]
+    fn test_process_precision_invalid_2() {
+        process_precision(&mut StrCursor::new("._é€$"));
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid count in format string")]
+    fn test_process_precision_invalid_3() {
+        process_precision(&mut StrCursor::new(".é€$"));
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid count in format string")]
+    fn test_process_precision_invalid_4() {
+        process_precision(&mut StrCursor::new(".@é€"));
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid count in format string")]
+    fn test_process_precision_invalid_5() {
+        process_precision(&mut StrCursor::new(".€"));
+    }
 }

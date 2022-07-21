@@ -16,3 +16,7 @@ proc-macro = true
 [dependencies]
 litrs = { version = "0.2.3", default-features = false }
 unicode-ident = "1.0"
+
+[dev-dependencies]
+proc-macro2 = "1.0"
+unicode-normalization = "0.1.21"
