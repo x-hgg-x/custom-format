@@ -3,7 +3,7 @@ members = ["custom-format-macros"]
 
 [package]
 name = "custom-format"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 authors = ["x-hgg-x"]
 repository = "https://github.com/x-hgg-x/custom-format"
@@ -14,4 +14,4 @@ categories = ["no-std", "rust-patterns", "value-formatting"]
 readme = "README.md"
 
 [dependencies]
-custom-format-macros = { version = "0.0.2", path = "custom-format-macros" }
+custom-format-macros = { version = "0.0.3", path = "custom-format-macros" }
