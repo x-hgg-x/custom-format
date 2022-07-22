@@ -15,27 +15,27 @@ pub struct DateTime {
 impl CustomFormat for DateTime {
     fn fmt(&self, f: &mut fmt::Formatter, spec: &str) -> fmt::Result {
         match spec {
-            // %Y  - Year with pad for at least 4 digits
+            // Year with pad for at least 4 digits
             "%Y" => write!(f, "{:04}", self.year),
-            // %y  - Year % 100 (00..99)
+            // Year % 100 (00..99)
             "%y" => write!(f, "{:02}", (self.year % 100).abs()),
-            // %m  - Month of the year, zero-padded (01..12)
+            // Month of the year, zero-padded (01..12)
             "%m" => write!(f, "{:02}", self.month),
-            // %d  - Day of the month, zero-padded (01..31)
+            // Day of the month, zero-padded (01..31)
             "%d" => write!(f, "{:02}", self.month_day),
-            // %H  - Hour of the day, 24-hour clock, zero-padded (00..23)
+            // Hour of the day, 24-hour clock, zero-padded (00..23)
             "%H" => write!(f, "{:02}", self.hour),
-            // %M  - Minute of the hour (00..59)
+            // Minute of the hour (00..59)
             "%M" => write!(f, "{:02}", self.minute),
-            // %S  - Second of the minute (00..60)
+            // Second of the minute (00..60)
             "%S" => write!(f, "{:02}", self.second),
-            // %9N - Nanosecond (9 digits)
+            // Nanosecond (9 digits)
             "%9N" => write!(f, "{:09}", self.nanoseconds),
-            // %D  - Date (%m/%d/%y)
+            // Date (%m/%d/%y)
             "%D" => write!(f, "{}/{}/{}", CustomFormatter::new(self, "%m"), CustomFormatter::new(self, "%d"), CustomFormatter::new(self, "%y")),
-            // %F  - The ISO 8601 date format (%Y-%m-%d)
+            // The ISO 8601 date format (%Y-%m-%d)
             "%F" => write!(f, "{}-{}-{}", CustomFormatter::new(self, "%Y"), CustomFormatter::new(self, "%m"), CustomFormatter::new(self, "%d")),
-            // %T  - 24-hour time (%H:%M:%S)
+            // 24-hour time (%H:%M:%S)
             "%T" => write!(f, "{}:{}:{}", CustomFormatter::new(self, "%H"), CustomFormatter::new(self, "%M"), CustomFormatter::new(self, "%S")),
             // Incorrect format
             _ => Err(fmt::Error),
