@@ -8,6 +8,7 @@ pub trait CustomFormat {
 }
 
 /// Wrapper for custom formatting via its [`Display`](core::fmt::Display) trait
+#[derive(Debug, Clone)]
 pub struct CustomFormatter<'a, T> {
     /// Value to format
     value: &'a T,

@@ -46,9 +46,11 @@ pub(super) fn process_alternate(cursor: &mut StrCursor) -> Option<char> {
 
 pub(super) fn process_sign_aware_zero_pad(cursor: &mut StrCursor) -> Option<char> {
     let old_cursor = cursor.clone();
+    let c = cursor.next();
+    let next = cursor.remaining().bytes().next();
 
-    match cursor.next() {
-        sign @ Some('0') => sign,
+    match (c, next) {
+        (sign @ Some('0'), next) if next != Some(b'$') => sign,
         _ => {
             *cursor = old_cursor;
             None
@@ -114,10 +116,7 @@ pub(super) fn parse_argument<'a>(cursor: &mut StrCursor<'a>) -> Option<ArgType<'
 
     let identifier = match first_char {
         '_' => match cursor.read_while(unicode_ident::is_xid_continue).len() {
-            0 => {
-                *cursor = old_cursor;
-                return None;
-            }
+            0 => panic!("invalid argument: argument name cannot be a single underscore"),
             len => &remaining[..first_char_len + len],
         },
         c => {
@@ -183,7 +182,7 @@ mod test {
 
     #[test]
     fn test_process_sign_aware_zero_pad() {
-        let data = [("0123", Some('0'), "123"), ("123", None, "123")];
+        let data = [("0123", Some('0'), "123"), ("0.6", Some('0'), ".6"), ("123", None, "123"), ("0$", None, "0$")];
 
         for (fmt, output, remaining) in data {
             let mut cursor = StrCursor::new(fmt);
@@ -208,6 +207,12 @@ mod test {
             assert_eq!(parse_argument(&mut cursor), output);
             assert_eq!(cursor.remaining(), remaining);
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid argument: argument name cannot be a single underscore")]
+    fn test_parse_argument_single_underscore() {
+        parse_argument(&mut StrCursor::new("_"));
     }
 
     #[test]

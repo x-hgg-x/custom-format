@@ -1,5 +1,5 @@
 [workspace]
-members = ["custom-format-macros"]
+members = ["custom-format-macros", "custom-format-tests"]
 
 [package]
 name = "custom-format"

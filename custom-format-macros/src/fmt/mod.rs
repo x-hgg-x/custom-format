@@ -406,7 +406,7 @@ pub(crate) fn fmt(input: TokenStream, skip_first: bool, root_macro: &str) -> Str
 mod test {
     use super::*;
 
-    use proc_macro2::Literal;
+    use proc_macro2::{Ident, Literal, Span};
 
     #[test]
     fn test_is_valid_spec_byte() {
@@ -418,7 +418,7 @@ mod test {
     fn test_parse_tokens() {
         let s1 = r#"
             "format string", 5==3, (), Custom(1f64.abs()), std::format!("{:?},{}", (3, 4), 5),
-            z=::std::f64::MAX, r = &1 + 4, b = 2, c = Custom(6), e = { g },
+            z=::std::f64::MAX, r = &1 + 4, b = 2, c = Custom(6), e = { g }
         "#;
 
         let s2 = r##"
@@ -535,6 +535,12 @@ mod test {
     #[should_panic(expected = "invalid count in format string")]
     fn test_process_fmt_invalid_count_format_string() {
         process_fmt("{0:.}", &mut 0, &mut String::new(), &mut 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid argument: argument name cannot be a single underscore")]
+    fn test_process_fmt_invalid_named_argument() {
+        process_fmt("{_:?}", &mut 0, &mut String::new(), &mut 0);
     }
 
     #[test]
@@ -678,5 +684,12 @@ mod test {
         let output = compute_output("::std::println!", None, new_format_string, &arguments, &arg_indices, &new_args);
 
         assert_eq!(output, result);
+    }
+
+    #[test]
+    fn test_compute_output_with_first_arg() {
+        let tokens = &[TokenTree::from(Ident::new("f", Span::call_site()))];
+        let output = compute_output("::std::writeln!", Some(Expr(tokens)), "string", &[], &[], &[]);
+        assert_eq!(output, "match () { () => { ::std::writeln!(f, \"string\") } }");
     }
 }
