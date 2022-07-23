@@ -1,6 +1,6 @@
 [package]
 name = "custom-format-macros"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 authors = ["x-hgg-x"]
 repository = "https://github.com/x-hgg-x/custom-format"
