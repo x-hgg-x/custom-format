@@ -25,7 +25,7 @@ impl<'a> Expr<'a> {
 }
 
 impl Display for Expr<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.iter().try_for_each(|token| write!(f, "{}", token))
     }
 }
@@ -83,10 +83,6 @@ enum Piece<'a> {
     CustomFmt { arg_type: ArgType<'a>, spec: &'a str },
 }
 
-fn is_valid_spec_byte(x: u8) -> bool {
-    x < 0x7F && (x.is_ascii_alphanumeric() || b"!#$%*+-.<=>?@^_~".binary_search(&x).is_ok())
-}
-
 fn parse_tokens(token_trees: &[TokenTree], skip_first: bool) -> (Option<Expr>, Cow<str>, Vec<Argument>) {
     let mut args_tokens_iter = token_trees.split(|token| matches!(token, TokenTree::Punct(punct) if punct.as_char() == ',' ));
 
@@ -137,7 +133,7 @@ fn process_fmt<'a>(fmt: &'a str, current_positional_index: &mut usize, new_forma
     let piece = match inner.find(CUSTOM_SEPARATOR) {
         Some(position) => {
             let spec = &inner[position + CUSTOM_SEPARATOR.len()..];
-            assert!(spec.bytes().all(is_valid_spec_byte), "invalid char in format spec");
+            assert!(spec.len() <= 16, "format specifier is limited to 16 bytes");
 
             let mut cursor = StrCursor::new(&inner[..position]);
 
@@ -332,6 +328,7 @@ fn write_literal_string(output: &mut String, s: &str) {
 fn compute_output(
     root_macro: &str,
     first_arg: Option<Expr>,
+    compile_time: bool,
     new_format_string: &str,
     arguments: &[Argument],
     arg_indices: &[(usize, Option<&str>)],
@@ -375,11 +372,13 @@ fn compute_output(
 
     write_literal_string(&mut output, new_format_string);
 
+    let func_new = if compile_time { "::custom_format::custom_formatter!" } else { "::custom_format::runtime::CustomFormatter::new" };
+
     for &(index, spec) in arg_indices {
         output.push_str(", ");
 
         match spec {
-            Some(spec) => write!(output, "::custom_format::CustomFormatter::new(arg{}, \"{}\")", index, spec).unwrap(),
+            Some(spec) => write!(output, "{}(\"{}\", arg{})", func_new, spec, index).unwrap(),
             None => write!(output, "arg{}", index).unwrap(),
         }
     }
@@ -389,7 +388,7 @@ fn compute_output(
     output
 }
 
-pub(crate) fn fmt(input: TokenStream, skip_first: bool, root_macro: &str) -> String {
+pub(crate) fn fmt(input: TokenStream, skip_first: bool, root_macro: &str, compile_time: bool) -> String {
     if input.is_empty() {
         return format!("{}()", root_macro).parse().unwrap();
     }
@@ -399,7 +398,7 @@ pub(crate) fn fmt(input: TokenStream, skip_first: bool, root_macro: &str) -> Str
     let (new_format_string, pieces) = parse_format_string(&format_string);
     let (arg_indices, new_args) = process_pieces(&pieces, &arguments);
 
-    compute_output(root_macro, first_arg, &new_format_string, &arguments, &arg_indices, &new_args)
+    compute_output(root_macro, first_arg, compile_time, &new_format_string, &arguments, &arg_indices, &new_args)
 }
 
 #[cfg(test)]
@@ -407,12 +406,6 @@ mod test {
     use super::*;
 
     use proc_macro2::{Ident, Literal, Span};
-
-    #[test]
-    fn test_is_valid_spec_byte() {
-        let result: Vec<_> = (0..4).map(|i| (0..64).map(|j| (is_valid_spec_byte(64 * i + j) as u64) << j).sum::<u64>()).collect();
-        assert_eq!(result, [0xF3FF6C3A00000000, 0x47FFFFFEC7FFFFFF, 0, 0]);
-    }
 
     #[test]
     fn test_parse_tokens() {
@@ -473,8 +466,11 @@ mod test {
         #[rustfmt::skip]
         let data = [
             ("{ :}",            "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: "" }),
-            ("{ : }",           "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: "" }),
+            ("{ : \t\r\n }",    "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: "" }),
+            ("{ :\u{2000} }",   "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: "" }),
+            ("{ : : : }",       "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: " : :" }),
             ("{ :%a }",         "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: "%a" }),
+            ("{ : éà }" ,       "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: " éà" }),
             ("{3 :%a }",        "{0}",             0, 1, Piece::CustomFmt { arg_type: ArgType::Positional(3), spec: "%a" }),
             ("{éà :%a}",        "{0}",             0, 1, Piece::CustomFmt { arg_type: ArgType::Named(Id::new("éà")), spec: "%a" }),
             ("{}",              "{0}",             1, 1, Piece::StdFmt { arg_type_position: ArgType::Positional(0),        arg_type_width: None,                               arg_type_precision: None }),
@@ -508,9 +504,9 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "invalid char in format spec")]
-    fn test_process_fmt_invalid_char_format_spec() {
-        process_fmt("{ :%ù }", &mut 0, &mut String::new(), &mut 0);
+    #[should_panic(expected = "format specifier is limited to 16 bytes")]
+    fn test_process_fmt_too_long_spec() {
+        process_fmt("{ :éàéàéàéàw}", &mut 0, &mut String::new(), &mut 0);
     }
 
     #[test]
@@ -674,22 +670,35 @@ mod test {
         let arg_indices = [(4, None), (4, Some("%z")), (1, None), (1, None), (3, None), (2, Some("%x")), (1, None), (0, None), (3, None), (5, None)];
         let new_args = ["h", "g"];
 
-        let result = concat!(
+        let result_runtime = concat!(
             r#"match (&("0"), &("1"), &("2"), &("3"), &(h), &(g)) { (arg0, arg1, arg2, arg3, arg4, arg5) => { "#,
             r#"::std::println!("{0}, {1}, {2}, {3}, {4}, {5}, {6:.7$}, {8:9$}", arg4, "#,
-            r#"::custom_format::CustomFormatter::new(arg4, "%z"), arg1, arg1, arg3, "#,
-            r#"::custom_format::CustomFormatter::new(arg2, "%x"), arg1, arg0, arg3, arg5) } }"#
+            r#"::custom_format::runtime::CustomFormatter::new("%z", arg4), arg1, arg1, arg3, "#,
+            r#"::custom_format::runtime::CustomFormatter::new("%x", arg2), arg1, arg0, arg3, arg5) } }"#
         );
 
-        let output = compute_output("::std::println!", None, new_format_string, &arguments, &arg_indices, &new_args);
+        let result_compile_time = concat!(
+            r#"match (&("0"), &("1"), &("2"), &("3"), &(h), &(g)) { (arg0, arg1, arg2, arg3, arg4, arg5) => { "#,
+            r#"::std::println!("{0}, {1}, {2}, {3}, {4}, {5}, {6:.7$}, {8:9$}", arg4, "#,
+            r#"::custom_format::custom_formatter!("%z", arg4), arg1, arg1, arg3, "#,
+            r#"::custom_format::custom_formatter!("%x", arg2), arg1, arg0, arg3, arg5) } }"#
+        );
 
-        assert_eq!(output, result);
+        let output_runtime = compute_output("::std::println!", None, false, new_format_string, &arguments, &arg_indices, &new_args);
+        let output_compile_time = compute_output("::std::println!", None, true, new_format_string, &arguments, &arg_indices, &new_args);
+
+        assert_eq!(output_runtime, result_runtime);
+        assert_eq!(output_compile_time, result_compile_time);
     }
 
     #[test]
     fn test_compute_output_with_first_arg() {
         let tokens = &[TokenTree::from(Ident::new("f", Span::call_site()))];
-        let output = compute_output("::std::writeln!", Some(Expr(tokens)), "string", &[], &[], &[]);
-        assert_eq!(output, "match () { () => { ::std::writeln!(f, \"string\") } }");
+
+        let output_runtime = compute_output("::std::writeln!", Some(Expr(tokens)), false, "string", &[], &[], &[]);
+        let output_compile_time = compute_output("::std::writeln!", Some(Expr(tokens)), false, "string", &[], &[], &[]);
+
+        assert_eq!(output_runtime, "match () { () => { ::std::writeln!(f, \"string\") } }");
+        assert_eq!(output_compile_time, "match () { () => { ::std::writeln!(f, \"string\") } }");
     }
 }

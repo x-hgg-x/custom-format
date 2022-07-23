@@ -6,3 +6,7 @@ publish = false
 
 [dependencies]
 custom-format = { path = ".." }
+
+[features]
+compile-time = ["custom-format/compile-time"]
+runtime = ["custom-format/runtime"]

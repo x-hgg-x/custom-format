@@ -13,5 +13,12 @@ keywords = ["no-std", "format", "string", "fmt", "macro"]
 categories = ["no-std", "rust-patterns", "value-formatting"]
 readme = "README.md"
 
+[package.metadata.docs.rs]
+all-features = true
+
 [dependencies]
 custom-format-macros = { version = "0.0.3", path = "custom-format-macros" }
+
+[features]
+compile-time = ["custom-format-macros/compile-time"]
+runtime = ["custom-format-macros/runtime"]
