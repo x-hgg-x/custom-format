@@ -92,11 +92,11 @@ fn main() {
         //             ::custom_format::custom_formatter!("%9N", arg0)
         //         )
         //     }
-        // };
+        // }
         //
         // Output: "The date time is: 1836-05-18 23:45:54.123456789"
         //
-        cfmt::println!("{1}: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :%9N}", date_time, "The date time is");
+        cfmt::println!("{prefix}: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :%9N}", date_time, prefix = "The date time is");
 
         // Compile-time error since "%h" is not a valid format specifier
         // cfmt::println!("{0 :%h}", date_time);

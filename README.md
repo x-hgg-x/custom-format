@@ -119,14 +119,14 @@ let date_time = DateTime {
 //             ::custom_format::custom_formatter!("%9N", arg0)
 //         )
 //     }
-// };
+// }
 //
 // Output: "The date time is: 1836-05-18 23:45:54.123456789"
 //
 cfmt::println!(
-    "{1}: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :%9N}",
+    "{prefix}: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :%9N}",
     date_time,
-    "The date time is"
+    prefix = "The date time is",
 );
 
 // Compile-time error since "%h" is not a valid format specifier
@@ -218,13 +218,13 @@ let date_time = DateTime {
 //         ::std::println!(
 //             "{0}: {1}-{2}-{3} {4}:{5}:{6}.{7}",
 //             arg1,
-//             ::custom_format::CustomFormatter::new(arg0, "%Y"),
-//             ::custom_format::CustomFormatter::new(arg0, "%m"),
-//             ::custom_format::CustomFormatter::new(arg0, "%d"),
-//             ::custom_format::CustomFormatter::new(arg0, "%H"),
-//             ::custom_format::CustomFormatter::new(arg0, "%M"),
-//             ::custom_format::CustomFormatter::new(arg0, "%S"),
-//             ::custom_format::CustomFormatter::new(arg0, "%9N")
+//             ::custom_format::runtime::CustomFormatter::new("%Y", arg0),
+//             ::custom_format::runtime::CustomFormatter::new("%m", arg0),
+//             ::custom_format::runtime::CustomFormatter::new("%d", arg0),
+//             ::custom_format::runtime::CustomFormatter::new("%H", arg0),
+//             ::custom_format::runtime::CustomFormatter::new("%M", arg0),
+//             ::custom_format::runtime::CustomFormatter::new("%S", arg0),
+//             ::custom_format::runtime::CustomFormatter::new("%9N", arg0)
 //         )
 //     }
 // }
@@ -232,9 +232,9 @@ let date_time = DateTime {
 // Output: "The date time is: 1836-05-18 23:45:54.123456789"
 //
 cfmt::println!(
-    "{1}: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :%9N}",
+    "{prefix}: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :%9N}",
     date_time,
-    "The date time is"
+    prefix = "The date time is",
 );
 
 // Panic at runtime since "%h" is not a valid format specifier
@@ -242,6 +242,30 @@ cfmt::println!(
 ```
 
 </details>
+
+## Limitations
+
+To improve compilation time, this crate doesn't use the `syn` crate for parsing tokens, and instead use a simple method to separate arguments of procedural macros: the arguments are separated by the `,` token when not in a delimited group.
+
+As a result, it cannot parse correctly complex expressions such as the following statement:
+
+```rust
+// Compilation error due to incorrect parsing
+cfmt::println!("{:?}", HashMap::<u32, u32>::new());
+```
+
+The workaround is simply to add an additional delimited group, or to define a new variable:
+
+```rust
+// No compilation error
+
+cfmt::println!("{:?}", (HashMap::<u32, u32>::new()));
+cfmt::println!("{:?}", { HashMap::<u32, u32>::new() });
+
+let map = HashMap::<u32, u32>::new();
+cfmt::println!("{map:?}");
+cfmt::println!("{map:?}", map = map);
+```
 
 ## License
 

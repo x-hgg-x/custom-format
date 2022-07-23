@@ -70,20 +70,20 @@ fn main() {
         //         ::std::println!(
         //             "{0}: {1}-{2}-{3} {4}:{5}:{6}.{7}",
         //             arg1,
-        //             ::custom_format::CustomFormatter::new(arg0, "%Y"),
-        //             ::custom_format::CustomFormatter::new(arg0, "%m"),
-        //             ::custom_format::CustomFormatter::new(arg0, "%d"),
-        //             ::custom_format::CustomFormatter::new(arg0, "%H"),
-        //             ::custom_format::CustomFormatter::new(arg0, "%M"),
-        //             ::custom_format::CustomFormatter::new(arg0, "%S"),
-        //             ::custom_format::CustomFormatter::new(arg0, "%9N")
+        //             ::custom_format::runtime::CustomFormatter::new("%Y", arg0),
+        //             ::custom_format::runtime::CustomFormatter::new("%m", arg0),
+        //             ::custom_format::runtime::CustomFormatter::new("%d", arg0),
+        //             ::custom_format::runtime::CustomFormatter::new("%H", arg0),
+        //             ::custom_format::runtime::CustomFormatter::new("%M", arg0),
+        //             ::custom_format::runtime::CustomFormatter::new("%S", arg0),
+        //             ::custom_format::runtime::CustomFormatter::new("%9N", arg0)
         //         )
         //     }
         // }
         //
         // Output: "The date time is: 1836-05-18 23:45:54.123456789"
         //
-        cfmt::println!("{1}: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :%9N}", date_time, "The date time is");
+        cfmt::println!("{prefix}: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :%9N}", date_time, prefix = "The date time is");
 
         // Panic at runtime since "%h" is not a valid format specifier
         // cfmt::println!("{0 :%h}", date_time);
