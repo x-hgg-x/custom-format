@@ -133,7 +133,6 @@ fn process_fmt<'a>(fmt: &'a str, current_positional_index: &mut usize, new_forma
     let piece = match inner.find(CUSTOM_SEPARATOR) {
         Some(position) => {
             let spec = &inner[position + CUSTOM_SEPARATOR.len()..];
-            assert!(spec.len() <= 16, "format specifier is limited to 16 bytes");
 
             let mut cursor = StrCursor::new(&inner[..position]);
 
@@ -501,12 +500,6 @@ mod test {
             assert_eq!(new_current_index, result_new_current_index);
             assert_eq!(piece, result_piece);
         }
-    }
-
-    #[test]
-    #[should_panic(expected = "format specifier is limited to 16 bytes")]
-    fn test_process_fmt_too_long_spec() {
-        process_fmt("{ :éàéàéàéàw}", &mut 0, &mut String::new(), &mut 0);
     }
 
     #[test]
