@@ -7,12 +7,12 @@ pub trait CustomFormat<const SPEC: u128> {
 
 /// Wrapper for custom formatting via its [`Display`](core::fmt::Display) trait
 #[derive(Debug, Clone)]
-pub struct CustomFormatter<'a, const SPEC: u128, T> {
+pub struct CustomFormatter<'a, T, const SPEC: u128> {
     /// Value to format
     value: &'a T,
 }
 
-impl<'a, const SPEC: u128, T> CustomFormatter<'a, SPEC, T> {
+impl<'a, T, const SPEC: u128> CustomFormatter<'a, T, SPEC> {
     /// Construct a new [`CustomFormatter`] value
     pub fn new(value: &'a T) -> Self {
         Self { value }
@@ -23,11 +23,11 @@ impl<'a, const SPEC: u128, T> CustomFormatter<'a, SPEC, T> {
 #[macro_export]
 macro_rules! custom_formatter {
     ($spec:literal, $value:expr) => {{
-        $crate::compile_time::CustomFormatter::<{ $crate::compile_time::spec($spec) }, _>::new($value)
+        $crate::compile_time::CustomFormatter::<_, { $crate::compile_time::spec($spec) }>::new($value)
     }};
 }
 
-impl<const SPEC: u128, T: CustomFormat<SPEC>> fmt::Display for CustomFormatter<'_, SPEC, T> {
+impl<T: CustomFormat<SPEC>, const SPEC: u128> fmt::Display for CustomFormatter<'_, T, SPEC> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         CustomFormat::fmt(self.value, f)
     }

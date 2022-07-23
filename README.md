@@ -1,6 +1,7 @@
 # custom-format
 
 [![version](https://img.shields.io/crates/v/custom-format?color=blue&style=flat-square)](https://crates.io/crates/custom-format)
+![Minimum supported Rust version](https://img.shields.io/badge/rustc-1.45+-important?logo=rust "Minimum Supported Rust Version")
 [![Documentation](https://docs.rs/custom-format/badge.svg)](https://docs.rs/custom-format)
 
 This crate extends the standard formatting syntax with custom format specifiers, by providing custom formatting macros.
@@ -13,6 +14,10 @@ This library comes in two flavors:
 This allows the library to have the same performance as when using the standard library formatting traits.
 
 * With the `runtime` feature, the formatting method dynamically checks the format specifier at runtime for each invocation. This is a slower version, but has a lower MSRV for greater compatibility.
+
+## Documentation
+
+Documentation is hosted on [docs.rs](https://docs.rs/custom-format/latest/).
 
 ## Example with the `compile-time` feature
 
@@ -266,6 +271,10 @@ let map = HashMap::<u32, u32>::new();
 cfmt::println!("{map:?}");
 cfmt::println!("{map:?}", map = map);
 ```
+
+## Compiler support
+
+Requires `rustc 1.45+` for the `runtime` feature and `rustc 1.51+` for the `compile-time` feature.
 
 ## License
 

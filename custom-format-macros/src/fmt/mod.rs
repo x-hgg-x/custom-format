@@ -163,7 +163,7 @@ fn process_fmt<'a>(fmt: &'a str, current_positional_index: &mut usize, new_forma
             match cursor.next() {
                 Some(':') => {
                     new_format_string.push(':');
-                    new_format_string.extend(parse::process_align(&mut cursor).into_iter().flatten());
+                    new_format_string.extend(parse::process_align(&mut cursor).iter().flatten());
                     new_format_string.extend(parse::process_sign(&mut cursor));
                     new_format_string.extend(parse::process_alternate(&mut cursor));
                     new_format_string.extend(parse::process_sign_aware_zero_pad(&mut cursor));
@@ -293,7 +293,7 @@ fn process_pieces<'a>(pieces: &'a [Piece], arguments: &[Argument]) -> (Vec<(usiz
     for piece in pieces {
         match piece {
             Piece::StdFmt { arg_type_position, arg_type_width, arg_type_precision } => {
-                for arg_type in [Some(arg_type_position), arg_type_width.as_ref(), arg_type_precision.as_ref()].into_iter().flatten() {
+                for &arg_type in [Some(arg_type_position), arg_type_width.as_ref(), arg_type_precision.as_ref()].iter().flatten() {
                     process_arg_type(arg_type, None)
                 }
             }
@@ -425,14 +425,14 @@ mod test {
 
         let data = [(s1, false, None), (s2, true, Some("f"))];
 
-        for (s, skip_first, result_first_arg) in data {
+        for &(s, skip_first, result_first_arg) in &data {
             let token_trees: Vec<_> = s.parse::<TokenStream>().unwrap().into_iter().collect();
             let (first_arg, format_string, arguments) = parse_tokens(&token_trees, skip_first);
 
             assert_eq!(first_arg.map(|expr| expr.to_string()).as_deref(), result_first_arg);
             assert_eq!(format_string, result_format_string);
 
-            for ((arg, result_name), result_expr) in arguments.iter().zip(result_argument_names).zip(result_argument_exprs) {
+            for ((arg, &result_name), &result_expr) in arguments.iter().zip(&result_argument_names).zip(&result_argument_exprs) {
                 assert_eq!(arg.name.as_deref(), result_name);
                 assert_eq!(arg.expr.to_string().replace(' ', ""), result_expr);
             }
@@ -488,7 +488,7 @@ mod test {
             ("{a:.*? }",        "{0:.1$?}",        1, 2, Piece::StdFmt { arg_type_position: ArgType::Named(Id::new("a")),  arg_type_width: None,                               arg_type_precision: Some(ArgType::Positional(0)) }),
         ];
 
-        for (fmt, result_new_format_string, result_current_positional_index, result_new_current_index, result_piece) in data {
+        for &(fmt, result_new_format_string, result_current_positional_index, result_new_current_index, ref result_piece) in &data {
             let mut new_format_string = String::new();
             let mut current_positional_index = 0;
             let mut new_current_index = 0;
@@ -498,7 +498,7 @@ mod test {
             assert_eq!(new_format_string, result_new_format_string);
             assert_eq!(current_positional_index, result_current_positional_index);
             assert_eq!(new_current_index, result_new_current_index);
-            assert_eq!(piece, result_piece);
+            assert_eq!(piece, *result_piece);
         }
     }
 

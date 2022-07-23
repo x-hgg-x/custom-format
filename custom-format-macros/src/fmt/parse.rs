@@ -7,16 +7,14 @@ pub(super) fn process_align(cursor: &mut StrCursor) -> [Option<char>; 2] {
     let cursor1 = cursor.clone();
     let c2 = cursor.next();
 
-    match (c1, c2) {
-        (fill @ Some(_), align @ Some('<' | '^' | '>')) => [fill, align],
-        (align @ Some('<' | '^' | '>'), _) => {
-            *cursor = cursor1;
-            [align, None]
-        }
-        _ => {
-            *cursor = cursor0;
-            [None, None]
-        }
+    if c1.is_some() && matches!(c2, Some('<') | Some('^') | Some('>')) {
+        [c1, c2]
+    } else if matches!(c1, Some('<') | Some('^') | Some('>')) {
+        *cursor = cursor1;
+        [c1, None]
+    } else {
+        *cursor = cursor0;
+        [None, None]
     }
 }
 
@@ -24,7 +22,7 @@ pub(super) fn process_sign(cursor: &mut StrCursor) -> Option<char> {
     let old_cursor = cursor.clone();
 
     match cursor.next() {
-        sign @ Some('+' | '-') => sign,
+        sign @ Some('+') | sign @ Some('-') => sign,
         _ => {
             *cursor = old_cursor;
             None
@@ -151,7 +149,7 @@ mod test {
             ("-->", [None, None], "-->"),
         ];
 
-        for (fmt, output, remaining) in data {
+        for &(fmt, output, remaining) in &data {
             let mut cursor = StrCursor::new(fmt);
             assert_eq!(process_align(&mut cursor), output);
             assert_eq!(cursor.remaining(), remaining);
@@ -162,7 +160,7 @@ mod test {
     fn test_process_sign() {
         let data = [("+000", Some('+'), "000"), ("-000", Some('-'), "000"), ("0000", None, "0000")];
 
-        for (fmt, output, remaining) in data {
+        for &(fmt, output, remaining) in &data {
             let mut cursor = StrCursor::new(fmt);
             assert_eq!(process_sign(&mut cursor), output);
             assert_eq!(cursor.remaining(), remaining);
@@ -173,7 +171,7 @@ mod test {
     fn test_process_alternate() {
         let data = [("#0", Some('#'), "0"), ("00", None, "00")];
 
-        for (fmt, output, remaining) in data {
+        for &(fmt, output, remaining) in &data {
             let mut cursor = StrCursor::new(fmt);
             assert_eq!(process_alternate(&mut cursor), output);
             assert_eq!(cursor.remaining(), remaining);
@@ -184,7 +182,7 @@ mod test {
     fn test_process_sign_aware_zero_pad() {
         let data = [("0123", Some('0'), "123"), ("0.6", Some('0'), ".6"), ("123", None, "123"), ("0$", None, "0$")];
 
-        for (fmt, output, remaining) in data {
+        for &(fmt, output, remaining) in &data {
             let mut cursor = StrCursor::new(fmt);
             assert_eq!(process_sign_aware_zero_pad(&mut cursor), output);
             assert_eq!(cursor.remaining(), remaining);
@@ -202,9 +200,9 @@ mod test {
             ("€", None, "€"),
         ];
 
-        for (fmt, output, remaining) in data {
+        for &(fmt, ref output, remaining) in &data {
             let mut cursor = StrCursor::new(fmt);
-            assert_eq!(parse_argument(&mut cursor), output);
+            assert_eq!(parse_argument(&mut cursor), *output);
             assert_eq!(cursor.remaining(), remaining);
         }
     }
@@ -236,9 +234,9 @@ mod test {
             ("€", None, "€"),
         ];
 
-        for (fmt, output, remaining) in data {
+        for &(fmt, ref output, remaining) in &data {
             let mut cursor = StrCursor::new(fmt);
-            assert_eq!(process_width(&mut cursor), output);
+            assert_eq!(process_width(&mut cursor).as_ref(), output.as_ref());
             assert_eq!(cursor.remaining(), remaining);
         }
     }
@@ -264,9 +262,9 @@ mod test {
             ("€", None, "€"),
         ];
 
-        for (fmt, output, remaining) in data {
+        for &(fmt, ref output, remaining) in &data {
             let mut cursor = StrCursor::new(fmt);
-            assert_eq!(process_precision(&mut cursor), output);
+            assert_eq!(process_precision(&mut cursor).as_ref(), output.as_ref());
             assert_eq!(cursor.remaining(), remaining);
         }
     }
