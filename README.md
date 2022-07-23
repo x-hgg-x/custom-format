@@ -16,6 +16,9 @@ This allows the library to have the same performance as when using the standard 
 
 ## Example with the `compile-time` feature
 
+<details>
+<summary>Code</summary>
+
 ```rust
 use custom_format::compile_time as cfmt;
 use custom_format::custom_formatter;
@@ -130,7 +133,12 @@ cfmt::println!(
 // cfmt::println!("{0 :%h}", date_time);
 ```
 
+</details>
+
 ## Example with the `runtime` feature
+
+<details>
+<summary>Code</summary>
 
 ```rust
 use custom_format::runtime::{self as cfmt, CustomFormat, CustomFormatter};
@@ -232,6 +240,8 @@ cfmt::println!(
 // Panic at runtime since "%h" is not a valid format specifier
 // cfmt::println!("{0 :%h}", date_time);
 ```
+
+</details>
 
 ## License
 
