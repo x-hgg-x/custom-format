@@ -8,12 +8,17 @@ This crate extends the standard formatting syntax with custom format specifiers,
 
 It uses ` :` (a space and a colon) as a separator before the format specifier, which is not a syntax currently accepted and allows supporting standard specifiers in addition to custom specifiers.
 
-This library comes in two flavors:
+This library comes in two flavors, corresponding to the following features:
 
-* With the `compile-time` feature, the set of possible custom format specifiers is defined at compilation, so invalid specifiers can be checked at compile-time.
-This allows the library to have the same performance as when using the standard library formatting traits.
+- `compile-time`
 
-* With the `runtime` feature, the formatting method dynamically checks the format specifier at runtime for each invocation. This is a slower version, but has a lower MSRV for greater compatibility.
+    The set of possible custom format specifiers is defined at compilation, so invalid specifiers can be checked at compile-time.
+    This allows the library to have the same performance as when using the standard library formatting traits.
+
+- `runtime`
+
+    The formatting method dynamically checks the format specifier at runtime for each invocation.
+    This is a slower version, but has a lower MSRV for greater compatibility.
 
 ## Documentation
 

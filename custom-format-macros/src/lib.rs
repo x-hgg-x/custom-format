@@ -1,3 +1,8 @@
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
+
+//! This crate provides procedural macros used for the `custom-format` crate.
+
 #[cfg(any(feature = "runtime", feature = "compile-time"))]
 mod fmt;
 

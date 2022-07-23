@@ -1,6 +1,9 @@
+//! Functions used for parsing standard format specifier.
+
 use super::utils::StrCursor;
 use super::{ArgType, Count, Id, Precision};
 
+/// Process standard fill and alignment specifiers
 pub(super) fn process_align(cursor: &mut StrCursor) -> [Option<char>; 2] {
     let cursor0 = cursor.clone();
     let c1 = cursor.next();
@@ -18,6 +21,7 @@ pub(super) fn process_align(cursor: &mut StrCursor) -> [Option<char>; 2] {
     }
 }
 
+/// Process standard sign specifier
 pub(super) fn process_sign(cursor: &mut StrCursor) -> Option<char> {
     let old_cursor = cursor.clone();
 
@@ -30,6 +34,7 @@ pub(super) fn process_sign(cursor: &mut StrCursor) -> Option<char> {
     }
 }
 
+/// Process standard alternate specifier
 pub(super) fn process_alternate(cursor: &mut StrCursor) -> Option<char> {
     let old_cursor = cursor.clone();
 
@@ -42,6 +47,7 @@ pub(super) fn process_alternate(cursor: &mut StrCursor) -> Option<char> {
     }
 }
 
+/// Process standard sign-aware zero-padding specifier
 pub(super) fn process_sign_aware_zero_pad(cursor: &mut StrCursor) -> Option<char> {
     let old_cursor = cursor.clone();
     let c = cursor.next();
@@ -56,10 +62,12 @@ pub(super) fn process_sign_aware_zero_pad(cursor: &mut StrCursor) -> Option<char
     }
 }
 
+/// Process standard width specifier
 pub(super) fn process_width<'a>(cursor: &mut StrCursor<'a>) -> Option<Count<'a>> {
     process_count(cursor)
 }
 
+/// Process standard precision specifier
 pub(super) fn process_precision<'a>(cursor: &mut StrCursor<'a>) -> Option<Precision<'a>> {
     let mut old_cursor = cursor.clone();
 
@@ -82,6 +90,7 @@ pub(super) fn process_precision<'a>(cursor: &mut StrCursor<'a>) -> Option<Precis
     }
 }
 
+/// Process standard count specifier
 pub(super) fn process_count<'a>(cursor: &mut StrCursor<'a>) -> Option<Count<'a>> {
     let old_cursor = cursor.clone();
 
@@ -98,6 +107,7 @@ pub(super) fn process_count<'a>(cursor: &mut StrCursor<'a>) -> Option<Count<'a>>
     }
 }
 
+/// Parse argument in a format specifier
 pub(super) fn parse_argument<'a>(cursor: &mut StrCursor<'a>) -> Option<ArgType<'a>> {
     // Try parsing as integer
     let integer_argument = cursor.read_while(|c| c.is_ascii_digit());

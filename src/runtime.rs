@@ -1,7 +1,52 @@
+//! Provides types associated to runtime formatting.
+
 use core::fmt;
 
-/// Trait for custom formatting
+/// Trait for custom formatting with runtime format checking
 pub trait CustomFormat {
+    /// Formats the value using the given formatter.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use custom_format::runtime::{self as cfmt, CustomFormat};
+    ///
+    /// use core::fmt;
+    ///
+    /// #[derive(Debug)]
+    /// struct Hex(u8);
+    ///
+    /// impl CustomFormat for Hex {
+    ///     fn fmt(&self, f: &mut fmt::Formatter, spec: &str) -> fmt::Result {
+    ///         match spec {
+    ///             "x" => write!(f, "{:#02x}", self.0),
+    ///             "X" => write!(f, "{:#02X}", self.0),
+    ///             _ => Err(fmt::Error),
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// assert_eq!(cfmt::format!("{0:X?}, {0 :x}, {0 :X}", Hex(0xAB)), "Hex(AB), 0xab, 0xAB");
+    /// ```
+    ///
+    /// The following statement panics at runtime since `"z"` is not a valid format specifier:
+    ///
+    /// ```rust,should_panic
+    /// # use custom_format::runtime::{self as cfmt, CustomFormat};
+    /// # use core::fmt;
+    /// # struct Hex(u8);
+    /// # impl CustomFormat for Hex {
+    /// #     fn fmt(&self, f: &mut fmt::Formatter, spec: &str) -> fmt::Result {
+    /// #         match spec {
+    /// #             "x" => write!(f, "{:#02x}", self.0),
+    /// #             "X" => write!(f, "{:#02X}", self.0),
+    /// #             _ => Err(fmt::Error),
+    /// #         }
+    /// #     }
+    /// # }
+    /// cfmt::println!("{ :z}", Hex(0));
+    /// ```
+    ///
     fn fmt(&self, f: &mut fmt::Formatter, spec: &str) -> fmt::Result;
 }
 

@@ -1,3 +1,5 @@
+//! Module containing procedural macros common code.
+
 mod parse;
 mod utils;
 
@@ -13,12 +15,15 @@ use proc_macro::{Spacing, TokenStream, TokenTree};
 #[cfg(test)]
 use proc_macro2::{Spacing, TokenStream, TokenTree};
 
+/// Separator for custom format specifier
 const CUSTOM_SEPARATOR: &str = " :";
 
+/// Expression represented as a list of [`TokenTree`]
 #[derive(Debug)]
 struct Expr<'a>(&'a [TokenTree]);
 
 impl<'a> Expr<'a> {
+    /// Returns `true` if the expression is empty
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -30,21 +35,27 @@ impl Display for Expr<'_> {
     }
 }
 
+/// Proc-macro argument
 #[derive(Debug)]
 struct Argument<'a> {
+    /// Optional name
     name: Option<String>,
+    /// Expression
     expr: Expr<'a>,
 }
 
+/// Identifier normalized in Unicode NFC
 #[derive(Debug, PartialEq)]
 struct Id<'a>(&'a str);
 
 impl<'a> Id<'a> {
+    /// Construct a new [`Id`] value
     fn new(name: &'a str) -> Self {
         Self::check_unicode_nfc(name);
         Self(name)
     }
 
+    /// Check if the identifier is normalized in Unicode NFC
     fn check_unicode_nfc(name: &str) {
         #[cfg(not(test))]
         let normalized_name = name.parse::<proc_macro::TokenStream>().unwrap().to_string();
@@ -54,35 +65,61 @@ impl<'a> Id<'a> {
         assert_eq!(name, normalized_name, "identifiers in format string must be normalized in Unicode NFC");
     }
 
+    /// Returns the identifier value
     fn name(&self) -> &'a str {
         self.0
     }
 }
 
+/// Type of a proc-macro argument
 #[derive(Debug, PartialEq)]
 enum ArgType<'a> {
+    /// Positional argument
     Positional(usize),
+    /// Named argument
     Named(Id<'a>),
 }
 
+/// Standard count format specifier
 #[derive(Debug, PartialEq)]
 enum Count<'a> {
+    /// Count is provided by an argument
     Argument(ArgType<'a>),
+    /// Count is provided by an integer
     Integer(&'a str),
 }
 
+/// Standard precision format specifier
 #[derive(Debug, PartialEq)]
 enum Precision<'a> {
+    /// Precision is provided by the next positional argument
     Asterisk,
+    /// Precision is provided by the specified count
     WithCount(Count<'a>),
 }
 
+/// Piece of a format string
 #[derive(Debug, PartialEq)]
 enum Piece<'a> {
-    StdFmt { arg_type_position: ArgType<'a>, arg_type_width: Option<ArgType<'a>>, arg_type_precision: Option<ArgType<'a>> },
-    CustomFmt { arg_type: ArgType<'a>, spec: &'a str },
+    /// Standard format specifier data
+    StdFmt {
+        /// Type of the positional argument
+        arg_type_position: ArgType<'a>,
+        /// Optional type of the width argument
+        arg_type_width: Option<ArgType<'a>>,
+        /// Optional type of the precision argument
+        arg_type_precision: Option<ArgType<'a>>,
+    },
+    /// Custom format specifier data
+    CustomFmt {
+        /// Type of the positional argument
+        arg_type: ArgType<'a>,
+        /// Custom format specifier
+        spec: &'a str,
+    },
 }
 
+/// Parse input tokens into a list of arguments
 fn parse_tokens(token_trees: &[TokenTree], skip_first: bool) -> (Option<Expr>, Cow<str>, Vec<Argument>) {
     let mut args_tokens_iter = token_trees.split(|token| matches!(token, TokenTree::Punct(punct) if punct.as_char() == ',' ));
 
@@ -120,6 +157,7 @@ fn parse_tokens(token_trees: &[TokenTree], skip_first: bool) -> (Option<Expr>, C
     (first_arg, format_string, arguments)
 }
 
+/// Process formatting argument
 fn process_fmt<'a>(fmt: &'a str, current_positional_index: &mut usize, new_format_string: &mut String, new_current_index: &mut usize) -> Piece<'a> {
     let mut fmt_chars = fmt.chars();
     let inner = match (fmt_chars.next(), fmt_chars.next_back()) {
@@ -217,6 +255,7 @@ fn process_fmt<'a>(fmt: &'a str, current_positional_index: &mut usize, new_forma
     piece
 }
 
+/// Parse format string
 fn parse_format_string(format_string: &str) -> (String, Vec<Piece>) {
     let mut cursor = StrCursor::new(format_string);
     let mut current_positional_index = 0;
@@ -246,6 +285,7 @@ fn parse_format_string(format_string: &str) -> (String, Vec<Piece>) {
     (new_format_string, pieces)
 }
 
+/// Process list of pieces
 fn process_pieces<'a>(pieces: &'a [Piece], arguments: &[Argument]) -> (Vec<(usize, Option<&'a str>)>, Vec<&'a str>) {
     let mut arguments_iter = arguments.iter();
     arguments_iter.position(|arg| arg.name.is_some());
@@ -311,6 +351,7 @@ fn process_pieces<'a>(pieces: &'a [Piece], arguments: &[Argument]) -> (Vec<(usiz
     (arg_indices, new_args)
 }
 
+/// Write literal string
 fn write_literal_string(output: &mut String, s: &str) {
     output.push('\"');
 
@@ -324,6 +365,7 @@ fn write_literal_string(output: &mut String, s: &str) {
     output.push('\"');
 }
 
+/// Compute output Rust code
 fn compute_output(
     root_macro: &str,
     first_arg: Option<Expr>,
@@ -387,6 +429,7 @@ fn compute_output(
     output
 }
 
+/// Main function of the procedural macros
 pub(crate) fn fmt(input: TokenStream, skip_first: bool, root_macro: &str, compile_time: bool) -> String {
     if input.is_empty() {
         return format!("{}()", root_macro).parse().unwrap();

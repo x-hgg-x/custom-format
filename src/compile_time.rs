@@ -1,11 +1,63 @@
+//! Provides types associated to compile-time formatting.
+
 use core::fmt;
 
-/// Trait for custom formatting
+/// Trait for custom formatting with compile-time format checking
 pub trait CustomFormat<const SPEC: u128> {
+    /// Formats the value using the given formatter.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use custom_format::compile_time::{self as cfmt, spec, CustomFormat};
+    ///
+    /// use core::fmt;
+    ///
+    /// #[derive(Debug)]
+    /// struct Hex(u8);
+    ///
+    /// impl CustomFormat<{ spec("x") }> for Hex {
+    ///     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    ///         write!(f, "{:#02x}", self.0)
+    ///     }
+    /// }
+    ///
+    /// impl CustomFormat<{ spec("X") }> for Hex {
+    ///     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    ///         write!(f, "{:#02X}", self.0)
+    ///     }
+    /// }
+    ///
+    /// assert_eq!(cfmt::format!("{0:X?}, {0 :x}, {0 :X}", Hex(0xAB)), "Hex(AB), 0xab, 0xAB");
+    /// ```
+    ///
+    /// The following statement doesn't compile since `"z"` is not a valid format specifier:
+    ///
+    /// ```rust,compile_fail
+    /// # use custom_format::compile_time::{self as cfmt, CustomFormat};
+    /// # use custom_format::custom_formatter;
+    /// # use core::fmt;
+    /// # struct Hex(u8);
+    /// # impl CustomFormat<{ cfmt::spec("x") }> for Hex {
+    /// #     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    /// #         write!(f, "{:#02x}", self.0)
+    /// #     }
+    /// # }
+    /// # impl CustomFormat<{ cfmt::spec("X") }> for Hex {
+    /// #     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    /// #         write!(f, "{:#02X}", self.0)
+    /// #     }
+    /// # }
+    /// cfmt::println!("{ :z}", Hex(0));
+    /// ```
+    ///
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
-/// Wrapper for custom formatting via its [`Display`](core::fmt::Display) trait
+/// Wrapper for custom formatting via its [`Display`](core::fmt::Display) trait.
+///
+/// The format specifier is a const-generic parameter and is part of the type.
+///
 #[derive(Debug, Clone)]
 pub struct CustomFormatter<'a, T, const SPEC: u128> {
     /// Value to format
@@ -26,6 +78,7 @@ macro_rules! custom_formatter {
         $crate::compile_time::CustomFormatter::<_, { $crate::compile_time::spec($spec) }>::new($value)
     }};
 }
+pub use custom_formatter;
 
 impl<T: CustomFormat<SPEC>, const SPEC: u128> fmt::Display for CustomFormatter<'_, T, SPEC> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
