@@ -1,6 +1,7 @@
 #[cfg(any(feature = "runtime", feature = "compile-time"))]
 mod fmt;
 
+#[cfg(any(feature = "runtime", feature = "compile-time"))]
 use proc_macro::TokenStream;
 
 /// Wrapper function for converting [`proc_macro::TokenStream`] to `proc_macro2::TokenStream` for tests
