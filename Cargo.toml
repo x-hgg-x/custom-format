@@ -3,7 +3,7 @@ members = ["custom-format-macros", "custom-format-tests"]
 
 [package]
 name = "custom-format"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2018"
 authors = ["x-hgg-x"]
 repository = "https://github.com/x-hgg-x/custom-format"
@@ -17,7 +17,7 @@ readme = "README.md"
 all-features = true
 
 [dependencies]
-custom-format-macros = { version = "0.0.5", path = "custom-format-macros" }
+custom-format-macros = { version = "0.0.6", path = "custom-format-macros" }
 
 [features]
 compile-time = ["custom-format-macros/compile-time"]
