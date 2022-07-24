@@ -5,43 +5,25 @@ mod utils;
 
 use utils::StrCursor;
 
-use std::borrow::Cow;
 use std::collections::hash_map::{Entry, HashMap};
-use std::fmt::{self, Display, Write};
+use std::fmt::Write;
 use std::str;
 
 #[cfg(not(test))]
-use proc_macro::{Spacing, TokenStream, TokenTree};
+use proc_macro::TokenStream;
 #[cfg(test)]
-use proc_macro2::{Spacing, TokenStream, TokenTree};
+use proc_macro2::TokenStream;
 
 /// Separator for custom format specifier
 const CUSTOM_SEPARATOR: &str = " :";
 
-/// Expression represented as a list of [`TokenTree`]
-#[derive(Debug)]
-struct Expr<'a>(&'a [TokenTree]);
-
-impl<'a> Expr<'a> {
-    /// Returns `true` if the expression is empty
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
-
-impl Display for Expr<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.iter().try_for_each(|token| write!(f, "{}", token))
-    }
-}
-
 /// Proc-macro argument
 #[derive(Debug)]
-struct Argument<'a> {
+struct Argument {
     /// Optional name
     name: Option<String>,
     /// Expression
-    expr: Expr<'a>,
+    expr: String,
 }
 
 /// Identifier normalized in Unicode NFC
@@ -120,14 +102,30 @@ enum Piece<'a> {
 }
 
 /// Parse input tokens into a list of arguments
-fn parse_tokens(token_trees: &[TokenTree], skip_first: bool) -> (Option<Expr>, Cow<str>, Vec<Argument>) {
+#[cfg(not(feature = "better-parsing"))]
+fn parse_tokens_fast(input: TokenStream, skip_first: bool) -> (Option<String>, String, Vec<Argument>) {
+    #[cfg(not(test))]
+    use proc_macro::{Spacing, TokenTree};
+    #[cfg(test)]
+    use proc_macro2::{Spacing, TokenTree};
+
+    let expr_to_string = |tokens| -> String {
+        let mut output = String::new();
+        for token in tokens {
+            write!(output, "{}", token).unwrap();
+        }
+        output
+    };
+
+    let token_trees: Vec<_> = input.into_iter().collect();
+
     let mut args_tokens_iter = token_trees.split(|token| matches!(token, TokenTree::Punct(punct) if punct.as_char() == ',' ));
 
-    let first_arg = if skip_first { args_tokens_iter.next().map(Expr) } else { None };
+    let first_arg = if skip_first { args_tokens_iter.next().map(expr_to_string) } else { None };
 
     let format_string = match args_tokens_iter.next() {
         Some([arg]) => match litrs::StringLit::parse(arg.to_string()) {
-            Ok(lit) => lit.into_value(),
+            Ok(lit) => lit.into_value().into_owned(),
             Err(_) => panic!("format argument must be a string literal"),
         },
         _ => panic!("invalid format argument"),
@@ -136,13 +134,15 @@ fn parse_tokens(token_trees: &[TokenTree], skip_first: bool) -> (Option<Expr>, C
     let mut arguments: Vec<_> = args_tokens_iter
         .map(|arg_tokens| match arg_tokens {
             [TokenTree::Ident(ident), TokenTree::Punct(punct), tail @ ..] if punct.as_char() == '=' => match punct.spacing() {
-                Spacing::Alone => Argument { name: Some(ident.to_string()), expr: Expr(tail) },
+                Spacing::Alone => Argument { name: Some(ident.to_string()), expr: expr_to_string(tail) },
                 Spacing::Joint => match tail.first() {
-                    Some(TokenTree::Punct(next_punct)) if matches!(next_punct.as_char(), '=' | '>') => Argument { name: None, expr: Expr(arg_tokens) },
-                    _ => Argument { name: Some(ident.to_string()), expr: Expr(tail) },
+                    Some(TokenTree::Punct(next_punct)) if matches!(next_punct.as_char(), '=' | '>') => {
+                        Argument { name: None, expr: expr_to_string(arg_tokens) }
+                    }
+                    _ => Argument { name: Some(ident.to_string()), expr: expr_to_string(tail) },
                 },
             },
-            _ => Argument { name: None, expr: Expr(arg_tokens) },
+            _ => Argument { name: None, expr: expr_to_string(arg_tokens) },
         })
         .collect();
 
@@ -153,6 +153,41 @@ fn parse_tokens(token_trees: &[TokenTree], skip_first: bool) -> (Option<Expr>, C
     }
 
     assert!(arguments.iter().all(|arg| !arg.expr.is_empty()), "invalid syntax: empty argument");
+
+    (first_arg, format_string, arguments)
+}
+
+/// Parse input tokens into a list of arguments
+#[cfg(feature = "better-parsing")]
+fn parse_tokens_syn(input: TokenStream, skip_first: bool) -> (Option<String>, String, Vec<Argument>) {
+    use quote::ToTokens;
+    use syn::parse::Parser;
+    use syn::punctuated::Punctuated;
+    use syn::{Expr, ExprAssign, Token};
+
+    #[allow(clippy::useless_conversion)]
+    let input = input.into();
+
+    let mut args_iter = Punctuated::<Expr, Token![,]>::parse_terminated.parse2(input).unwrap_or_else(|_| panic!("invalid syntax")).into_iter();
+
+    let first_arg = if skip_first { args_iter.next().map(|expr| expr.to_token_stream().to_string()) } else { None };
+
+    let format_string = match args_iter.next() {
+        Some(expr) => match litrs::StringLit::parse(expr.to_token_stream().to_string()) {
+            Ok(lit) => lit.into_value().into_owned(),
+            Err(_) => panic!("format argument must be a string literal"),
+        },
+        _ => panic!("invalid format argument"),
+    };
+
+    let arguments: Vec<_> = args_iter
+        .map(|expr| match expr {
+            Expr::Assign(ExprAssign { left, right, .. }) => {
+                Argument { name: Some(left.to_token_stream().to_string()), expr: right.to_token_stream().to_string() }
+            }
+            expr => Argument { name: None, expr: expr.to_token_stream().to_string() },
+        })
+        .collect();
 
     (first_arg, format_string, arguments)
 }
@@ -368,7 +403,7 @@ fn write_literal_string(output: &mut String, s: &str) {
 /// Compute output Rust code
 fn compute_output(
     root_macro: &str,
-    first_arg: Option<Expr>,
+    first_arg: Option<&str>,
     compile_time: bool,
     new_format_string: &str,
     arguments: &[Argument],
@@ -435,72 +470,92 @@ pub(crate) fn fmt(input: TokenStream, skip_first: bool, root_macro: &str, compil
         return format!("{}()", root_macro).parse().unwrap();
     }
 
-    let token_trees: Vec<_> = input.into_iter().collect();
-    let (first_arg, format_string, arguments) = parse_tokens(&token_trees, skip_first);
+    #[cfg(not(feature = "better-parsing"))]
+    let parse_tokens = parse_tokens_fast;
+    #[cfg(feature = "better-parsing")]
+    let parse_tokens = parse_tokens_syn;
+
+    let (first_arg, format_string, arguments) = parse_tokens(input, skip_first);
     let (new_format_string, pieces) = parse_format_string(&format_string);
     let (arg_indices, new_args) = process_pieces(&pieces, &arguments);
 
-    compute_output(root_macro, first_arg, compile_time, &new_format_string, &arguments, &arg_indices, &new_args)
+    compute_output(root_macro, first_arg.as_deref(), compile_time, &new_format_string, &arguments, &arg_indices, &new_args)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
 
-    use proc_macro2::{Ident, Literal, Span};
+    #[cfg(not(feature = "better-parsing"))]
+    mod fast_parsing {
+        use super::*;
 
-    #[test]
-    fn test_parse_tokens() {
-        let s1 = r#"
-            "format string", 5==3, (), Custom(1f64.abs()), std::format!("{:?},{}", (3, 4), 5),
-            z=::std::f64::MAX, r = &1 + 4, b = 2, c = Custom(6), e = { g }
-        "#;
+        #[test]
+        fn test_parse_tokens_fast() {
+            let s1 = r#"
+                "format string", 5==3, (), Custom(1f64.abs()), std::format!("{:?},{}", (3, 4), 5),
+                z=::std::f64::MAX, r = &1 + 4, b = 2, c = Custom(6), e = { g }
+            "#;
 
-        let s2 = r##"
-            f, r#"format string"#, 5==3, (), Custom(1f64.abs()), std::format!("{:?},{}", (3, 4), 5),
-            z=::std::f64::MAX, r = &1 + 4, b = 2, c = Custom(6), e = { g },
-        "##;
+            let s2 = r##"
+                f, r#"format string"#, 5==3, (), Custom(1f64.abs()), std::format!("{:?},{}", (3, 4), 5),
+                z=::std::f64::MAX, r = &1 + 4, b = 2, c = Custom(6), e = { g },
+            "##;
 
-        let result_format_string = "format string";
-        let result_argument_names = [None, None, None, None, Some("z"), Some("r"), Some("b"), Some("c"), Some("e")];
-        let result_argument_exprs =
-            ["5==3", "()", "Custom(1f64.abs())", r#"std::format!("{:?},{}",(3,4),5)"#, "::std::f64::MAX", "&1+4", "2", "Custom(6)", "{g}"];
+            let result_format_string = "format string";
+            let result_argument_names = [None, None, None, None, Some("z"), Some("r"), Some("b"), Some("c"), Some("e")];
+            let result_argument_exprs =
+                ["5==3", "()", "Custom(1f64.abs())", r#"std::format!("{:?},{}",(3,4),5)"#, "::std::f64::MAX", "&1+4", "2", "Custom(6)", "{g}"];
 
-        let data = [(s1, false, None), (s2, true, Some("f"))];
+            let data = [(s1, false, None), (s2, true, Some("f"))];
 
-        for &(s, skip_first, result_first_arg) in &data {
-            let token_trees: Vec<_> = s.parse::<TokenStream>().unwrap().into_iter().collect();
-            let (first_arg, format_string, arguments) = parse_tokens(&token_trees, skip_first);
+            for &(s, skip_first, result_first_arg) in &data {
+                let (first_arg, format_string, arguments) = parse_tokens_fast(s.parse::<TokenStream>().unwrap(), skip_first);
 
-            assert_eq!(first_arg.map(|expr| expr.to_string()).as_deref(), result_first_arg);
-            assert_eq!(format_string, result_format_string);
+                assert_eq!(first_arg.as_deref(), result_first_arg);
+                assert_eq!(format_string, result_format_string);
 
-            for ((arg, &result_name), &result_expr) in arguments.iter().zip(&result_argument_names).zip(&result_argument_exprs) {
-                assert_eq!(arg.name.as_deref(), result_name);
-                assert_eq!(arg.expr.to_string().replace(' ', ""), result_expr);
+                for ((arg, &result_name), &result_expr) in arguments.iter().zip(&result_argument_names).zip(&result_argument_exprs) {
+                    assert_eq!(arg.name.as_deref(), result_name);
+                    assert_eq!(arg.expr.to_string().replace(' ', ""), result_expr);
+                }
             }
+        }
+
+        #[test]
+        #[should_panic(expected = "format argument must be a string literal")]
+        fn test_parse_tokens_fast_not_string_literal() {
+            parse_tokens_fast(r#""{}", 1"#.parse::<TokenStream>().unwrap(), true);
+        }
+
+        #[test]
+        #[should_panic(expected = "invalid format argument")]
+        fn test_parse_tokens_fast_invalid_format_string() {
+            parse_tokens_fast(",1".parse::<TokenStream>().unwrap(), false);
+        }
+
+        #[test]
+        #[should_panic(expected = "invalid syntax: empty argument")]
+        fn test_parse_tokens_fast_empty_argument() {
+            parse_tokens_fast(r#""{}", ,"#.parse::<TokenStream>().unwrap(), false);
         }
     }
 
-    #[test]
-    #[should_panic(expected = "format argument must be a string literal")]
-    fn test_parse_tokens_not_string_literal() {
-        let token_trees: Vec<_> = r#""{}", 1"#.parse::<TokenStream>().unwrap().into_iter().collect();
-        parse_tokens(&token_trees, true);
-    }
+    #[cfg(feature = "better-parsing")]
+    mod syn_parsing {
+        use super::*;
 
-    #[test]
-    #[should_panic(expected = "invalid format argument")]
-    fn test_parse_tokens_invalid_format_string() {
-        let token_trees: Vec<_> = ",1".parse::<TokenStream>().unwrap().into_iter().collect();
-        parse_tokens(&token_trees, false);
-    }
+        #[test]
+        #[should_panic(expected = "invalid syntax")]
+        fn test_parse_tokens_syn_invalid_format_string() {
+            parse_tokens_syn(",1".parse::<TokenStream>().unwrap(), false);
+        }
 
-    #[test]
-    #[should_panic(expected = "invalid syntax: empty argument")]
-    fn test_parse_tokens_empty_argument() {
-        let token_trees: Vec<_> = r#""{}", ,"#.parse::<TokenStream>().unwrap().into_iter().collect();
-        parse_tokens(&token_trees, false);
+        #[test]
+        #[should_panic(expected = "format argument must be a string literal")]
+        fn test_parse_tokens_syn_not_string_literal() {
+            parse_tokens_syn(r#""{}", 1"#.parse::<TokenStream>().unwrap(), true);
+        }
     }
 
     #[test]
@@ -614,10 +669,10 @@ mod test {
         ];
 
         let arguments = [
-            Argument { name: None, expr: Expr(&[]) },
-            Argument { name: Some("a".to_owned()), expr: Expr(&[]) },
-            Argument { name: Some("b".to_owned()), expr: Expr(&[]) },
-            Argument { name: Some("c".to_owned()), expr: Expr(&[]) },
+            Argument { name: None, expr: "".to_owned() },
+            Argument { name: Some("a".to_owned()), expr: "".to_owned() },
+            Argument { name: Some("b".to_owned()), expr: "".to_owned() },
+            Argument { name: Some("c".to_owned()), expr: "".to_owned() },
         ];
 
         let result_arg_indices = [(4, None), (4, Some("%z")), (1, None), (1, None), (3, None), (2, None), (1, None), (0, None), (3, None), (5, None)];
@@ -632,13 +687,13 @@ mod test {
     #[test]
     #[should_panic(expected = "positional arguments cannot follow named arguments")]
     fn test_process_pieces_positional_after_named() {
-        process_pieces(&[], &[Argument { name: Some("é".to_owned()), expr: Expr(&[]) }, Argument { name: None, expr: Expr(&[]) }]);
+        process_pieces(&[], &[Argument { name: Some("é".to_owned()), expr: "".to_owned() }, Argument { name: None, expr: "".to_owned() }]);
     }
 
     #[test]
     #[should_panic(expected = "duplicate argument named `a`")]
     fn test_process_pieces_duplicate_named_argument() {
-        process_pieces(&[], &[Argument { name: Some("a".to_owned()), expr: Expr(&[]) }, Argument { name: Some("a".to_owned()), expr: Expr(&[]) }]);
+        process_pieces(&[], &[Argument { name: Some("a".to_owned()), expr: "".to_owned() }, Argument { name: Some("a".to_owned()), expr: "".to_owned() }]);
     }
 
     #[test]
@@ -650,13 +705,13 @@ mod test {
     #[test]
     #[should_panic(expected = "positional argument 0 not used")]
     fn test_process_pieces_positional_argument_not_used() {
-        process_pieces(&[], &[Argument { name: None, expr: Expr(&[]) }]);
+        process_pieces(&[], &[Argument { name: None, expr: "".to_owned() }]);
     }
 
     #[test]
     #[should_panic(expected = "named argument `a` not used")]
     fn test_process_pieces_named_argument_not_used() {
-        process_pieces(&[], &[Argument { name: Some("a".to_owned()), expr: Expr(&[]) }]);
+        process_pieces(&[], &[Argument { name: Some("a".to_owned()), expr: "".to_owned() }]);
     }
 
     #[test]
@@ -691,16 +746,11 @@ mod test {
     fn test_compute_output() {
         let new_format_string = "{0}, {1}, {2}, {3}, {4}, {5}, {6:.7$}, {8:9$}";
 
-        let tokens1 = &[TokenTree::from(Literal::string("0"))];
-        let tokens2 = &[TokenTree::from(Literal::string("1"))];
-        let tokens3 = &[TokenTree::from(Literal::string("2"))];
-        let tokens4 = &[TokenTree::from(Literal::string("3"))];
-
         let arguments = [
-            Argument { name: None, expr: Expr(tokens1) },
-            Argument { name: Some("a".to_owned()), expr: Expr(tokens2) },
-            Argument { name: Some("b".to_owned()), expr: Expr(tokens3) },
-            Argument { name: Some("c".to_owned()), expr: Expr(tokens4) },
+            Argument { name: None, expr: r#""0""#.to_owned() },
+            Argument { name: Some("a".to_owned()), expr: r#""1""#.to_owned() },
+            Argument { name: Some("b".to_owned()), expr: r#""2""#.to_owned() },
+            Argument { name: Some("c".to_owned()), expr: r#""3""#.to_owned() },
         ];
 
         let arg_indices = [(4, None), (4, Some("%z")), (1, None), (1, None), (3, None), (2, Some("%x")), (1, None), (0, None), (3, None), (5, None)];
@@ -729,10 +779,8 @@ mod test {
 
     #[test]
     fn test_compute_output_with_first_arg() {
-        let tokens = &[TokenTree::from(Ident::new("f", Span::call_site()))];
-
-        let output_runtime = compute_output("::std::writeln!", Some(Expr(tokens)), false, "string", &[], &[], &[]);
-        let output_compile_time = compute_output("::std::writeln!", Some(Expr(tokens)), false, "string", &[], &[], &[]);
+        let output_runtime = compute_output("::std::writeln!", Some("f"), false, "string", &[], &[], &[]);
+        let output_compile_time = compute_output("::std::writeln!", Some("f"), false, "string", &[], &[], &[]);
 
         assert_eq!(output_runtime, "match () { () => { ::std::writeln!(f, \"string\") } }");
         assert_eq!(output_compile_time, "match () { () => { ::std::writeln!(f, \"string\") } }");

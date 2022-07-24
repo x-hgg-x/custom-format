@@ -17,8 +17,17 @@ readme = "README.md"
 all-features = true
 
 [dependencies]
-custom-format-macros = { version = "0.1.1", path = "custom-format-macros" }
+custom-format-macros = { version = "0.1.1", path = "custom-format-macros", default-features = false }
 
 [features]
+# Compile-time formatting
 compile-time = ["custom-format-macros/compile-time"]
+
+# Runtime formatting
 runtime = ["custom-format-macros/runtime"]
+
+# Better parsing (longer compile time)
+better-parsing = ["custom-format-macros/better-parsing"]
+
+# Default
+default = ["better-parsing"]

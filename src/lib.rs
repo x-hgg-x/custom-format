@@ -19,6 +19,36 @@
 //!     The formatting method dynamically checks the format specifier at runtime for each invocation.
 //!     This is a slower version, but has a lower MSRV for greater compatibility.
 //!     See the [`runtime::CustomFormat`](crate::runtime::CustomFormat) trait.
+//!
+//!
+//! ## Additional features
+//!
+//! By default, the `syn` crate is used for parsing arguments of the procedural macros.
+//!
+//! To improve compilation time, a fast parsing mode is available when disabling default features.
+//! It doesn't parse the full expression of the arguments, but instead only separate the arguments by the `,` token when not in a delimited group.
+//!
+//! This works for 99% of cases but cannot parse correctly expressions containing commas inside turbofishs or closures without delimiters:
+//!
+//! ```rust
+//! // Compilation error due to incorrect parsing
+//! cfmt::println!("{ :?}", |a, b| a);
+//! cfmt::println!("{:?}", HashMap::<u32, u32>::new());
+//! ```
+//!
+//! The workaround is simply to add an additional delimited group, or to define a new variable:
+//!
+//! ```rust
+//! // No compilation error
+//!
+//! cfmt::println!("{ :?}", (|a, b| a)); // if a custom specifier is defined
+//! cfmt::println!("{:?}", (HashMap::<u32, u32>::new()));
+//! cfmt::println!("{:?}", { HashMap::<u32, u32>::new() });
+//!
+//! let map = HashMap::<u32, u32>::new();
+//! cfmt::println!("{map:?}");
+//! cfmt::println!("{map:?}", map = map);
+//! ```
 
 #[cfg(feature = "compile-time")]
 pub mod compile_time;

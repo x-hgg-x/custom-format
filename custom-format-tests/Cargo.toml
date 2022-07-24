@@ -5,8 +5,9 @@ edition = "2018"
 publish = false
 
 [dependencies]
-custom-format = { path = ".." }
+custom-format = { path = "..", default-features = false }
 
 [features]
 compile-time = ["custom-format/compile-time"]
 runtime = ["custom-format/runtime"]
+better-parsing = ["custom-format/better-parsing"]

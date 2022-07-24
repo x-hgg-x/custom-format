@@ -16,14 +16,41 @@ all-features = true
 [lib]
 proc-macro = true
 
-[dependencies]
-litrs = { version = "0.2.3", default-features = false }
-unicode-ident = "1.0"
+[dependencies.litrs]
+version = "0.2.3"
+default-features = false
+
+[dependencies.unicode-ident]
+version = "1.0"
+
+[dependencies.syn]
+version = "1.0"
+default-features = false
+features = ["full", "parsing", "printing"]
+optional = true
+
+[dependencies.quote]
+version = "1.0"
+default-features = false
+optional = true
+
+[dependencies.proc-macro2]
+version = "1.0"
+optional = true
 
 [dev-dependencies]
 proc-macro2 = "1.0"
-unicode-normalization = "0.1.21"
+unicode-normalization = { version = "0.1.21", default-features = false }
 
 [features]
+# Compile-time formatting
 compile-time = []
+
+# Runtime formatting
 runtime = []
+
+# Better parsing (longer compile time)
+better-parsing = ["syn", "quote", "proc-macro2"]
+
+# Default
+default = ["better-parsing"]
