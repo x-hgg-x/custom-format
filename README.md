@@ -257,10 +257,11 @@ cfmt::println!(
 
 To improve compilation time, this crate doesn't use the `syn` crate for parsing tokens, and instead use a simple method to separate arguments of procedural macros: the arguments are separated by the `,` token when not in a delimited group.
 
-As a result, it cannot parse correctly complex expressions such as the following statement:
+This works for 99% of cases but cannot parse correctly expressions containing commas inside turbofishs or closures without delimiters:
 
 ```rust
 // Compilation error due to incorrect parsing
+cfmt::println!("{ :?}", |a, b| a);
 cfmt::println!("{:?}", HashMap::<u32, u32>::new());
 ```
 
@@ -269,6 +270,7 @@ The workaround is simply to add an additional delimited group, or to define a ne
 ```rust
 // No compilation error
 
+cfmt::println!("{ :?}", (|a, b| a)); // if a custom specifier is defined
 cfmt::println!("{:?}", (HashMap::<u32, u32>::new()));
 cfmt::println!("{:?}", { HashMap::<u32, u32>::new() });
 
