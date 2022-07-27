@@ -1,8 +1,7 @@
 fn main() {
-    #[cfg(feature = "compile-time")]
+    #[cfg(all(feature = "compile-time", feature = "runtime"))]
     {
-        use custom_format::compile_time as cfmt;
-        use custom_format::custom_formatter;
+        use custom_format as cfmt;
 
         use core::fmt;
 
@@ -18,8 +17,9 @@ fn main() {
 
         macro_rules! impl_custom_format_for_datetime {
             (match spec { $($spec:literal => $func:expr $(,)?)* }) => {
+                use cfmt::compile_time::{spec, CustomFormat};
                 $(
-                    impl cfmt::CustomFormat<{ cfmt::spec($spec) }> for DateTime {
+                    impl CustomFormat<{ spec($spec) }> for DateTime {
                         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                             ($func as fn(&Self, &mut fmt::Formatter) -> fmt::Result)(self, f)
                         }
@@ -28,6 +28,7 @@ fn main() {
             };
         }
 
+        // Static format specifiers, checked at compile-time
         impl_custom_format_for_datetime!(match spec {
             // Year with pad for at least 4 digits
             "%Y" => |this, f| write!(f, "{:04}", this.year),
@@ -43,45 +44,46 @@ fn main() {
             "%M" => |this, f| write!(f, "{:02}", this.minute),
             // Second of the minute (00..60)
             "%S" => |this, f| write!(f, "{:02}", this.second),
-            // Nanosecond (9 digits)
-            "%9N" => |this, f| write!(f, "{:09}", this.nanoseconds),
             // Date (%m/%d/%y)
             "%D" => {
                 |this, f| {
-                    let month = custom_formatter!("%m", this);
-                    let day = custom_formatter!("%d", this);
-                    let year = custom_formatter!("%y", this);
+                    let month = cfmt::custom_formatter!("%m", this);
+                    let day = cfmt::custom_formatter!("%d", this);
+                    let year = cfmt::custom_formatter!("%y", this);
                     write!(f, "{}/{}/{}", month, day, year)
                 }
             }
-            // The ISO 8601 date format (%Y-%m-%d)
-            "%F" => {
-                |this, f| {
-                    let year = custom_formatter!("%Y", this);
-                    let month = custom_formatter!("%m", this);
-                    let day = custom_formatter!("%d", this);
-                    write!(f, "{}-{}-{}", year, month, day)
-                }
-            }
-            // 24-hour time (%H:%M:%S)
-            "%T" => {
-                |this, f| {
-                    let hour = custom_formatter!("%H", this);
-                    let minute = custom_formatter!("%M", this);
-                    let second = custom_formatter!("%S", this);
-                    write!(f, "{}:{}:{}", hour, minute, second)
-                }
-            }
         });
+
+        // Dynamic format specifiers, checked at runtime
+        impl cfmt::runtime::CustomFormat for DateTime {
+            fn fmt(&self, f: &mut fmt::Formatter, spec: &str) -> fmt::Result {
+                let mut chars = spec.chars();
+                match (chars.next(), chars.next_back()) {
+                    // Nanoseconds with n digits (%nN)
+                    (Some('%'), Some('N')) => match chars.as_str().parse() {
+                        Ok(n) if n > 0 => {
+                            if n <= 9 {
+                                write!(f, "{:0width$}", self.nanoseconds / 10u32.pow(9 - n as u32), width = n)
+                            } else {
+                                write!(f, "{:09}{:0width$}", self.nanoseconds, 0, width = n - 9)
+                            }
+                        }
+                        _ => Err(fmt::Error),
+                    },
+                    _ => Err(fmt::Error),
+                }
+            }
+        }
 
         let date_time = DateTime { year: 1836, month: 5, month_day: 18, hour: 23, minute: 45, second: 54, nanoseconds: 123456789 };
 
         // Expands to:
         //
-        // match (&(date_time), &("The date time is")) {
+        // match (&(date_time), &("DateTime")) {
         //     (arg0, arg1) => {
         //         ::std::println!(
-        //             "{0}: {1}-{2}-{3} {4}:{5}:{6}.{7}",
+        //             "The {0:?} is: {1}-{2}-{3} {4}:{5}:{6}.{7}",
         //             arg1,
         //             ::custom_format::custom_formatter!("%Y", arg0),
         //             ::custom_format::custom_formatter!("%m", arg0),
@@ -89,16 +91,20 @@ fn main() {
         //             ::custom_format::custom_formatter!("%H", arg0),
         //             ::custom_format::custom_formatter!("%M", arg0),
         //             ::custom_format::custom_formatter!("%S", arg0),
-        //             ::custom_format::custom_formatter!("%9N", arg0)
+        //             ::custom_format::runtime::CustomFormatter::new("%6N", arg0)
         //         )
         //     }
         // }
         //
-        // Output: "The date time is: 1836-05-18 23:45:54.123456789"
+        // Output: `The "DateTime" is: 1836-05-18 23:45:54.123456`
         //
-        cfmt::println!("{prefix}: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :%9N}", date_time, prefix = "The date time is");
+        // The custom format specifier is interpreted as a compile-time specifier by default, or as a runtime specifier if it is inside "<>".
+        cfmt::println!("The {ty:?} is: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :<%6N>}", date_time, ty = "DateTime");
 
         // Compile-time error since "%h" is not a valid format specifier
         // cfmt::println!("{0 :%h}", date_time);
+
+        // Panic at runtime since "%h" is not a valid format specifier
+        // cfmt::println!("{0 :<%h>}", date_time);
     }
 }

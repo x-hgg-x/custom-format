@@ -53,9 +53,9 @@ impl<'a> Id<'a> {
     }
 }
 
-/// Type of a proc-macro argument
+/// Kind of a proc-macro argument
 #[derive(Debug, PartialEq)]
-enum ArgType<'a> {
+enum ArgKind<'a> {
     /// Positional argument
     Positional(usize),
     /// Named argument
@@ -66,7 +66,7 @@ enum ArgType<'a> {
 #[derive(Debug, PartialEq)]
 enum Count<'a> {
     /// Count is provided by an argument
-    Argument(ArgType<'a>),
+    Argument(ArgKind<'a>),
     /// Count is provided by an integer
     Integer(&'a str),
 }
@@ -80,24 +80,33 @@ enum Precision<'a> {
     WithCount(Count<'a>),
 }
 
+/// Custom format specifier
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum Spec<'a> {
+    // Format specifier checked at compile-time
+    CompileTime(&'a str),
+    // Format specifier checked at runtime
+    Runtime(&'a str),
+}
+
 /// Piece of a format string
 #[derive(Debug, PartialEq)]
 enum Piece<'a> {
     /// Standard format specifier data
     StdFmt {
-        /// Type of the positional argument
-        arg_type_position: ArgType<'a>,
-        /// Optional type of the width argument
-        arg_type_width: Option<ArgType<'a>>,
-        /// Optional type of the precision argument
-        arg_type_precision: Option<ArgType<'a>>,
+        /// Kind of the positional argument
+        arg_kind_position: ArgKind<'a>,
+        /// Optional kind of the width argument
+        arg_kind_width: Option<ArgKind<'a>>,
+        /// Optional kind of the precision argument
+        arg_kind_precision: Option<ArgKind<'a>>,
     },
     /// Custom format specifier data
     CustomFmt {
-        /// Type of the positional argument
-        arg_type: ArgType<'a>,
+        /// Kind of the positional argument
+        arg_kind: ArgKind<'a>,
         /// Custom format specifier
-        spec: &'a str,
+        spec: Spec<'a>,
     },
 }
 
@@ -205,33 +214,39 @@ fn process_fmt<'a>(fmt: &'a str, current_positional_index: &mut usize, new_forma
 
     let piece = match inner.find(CUSTOM_SEPARATOR) {
         Some(position) => {
-            let spec = &inner[position + CUSTOM_SEPARATOR.len()..];
+            let specifier = &inner[position + CUSTOM_SEPARATOR.len()..];
+
+            let mut spec_chars = specifier.chars();
+            let spec = match (spec_chars.next(), spec_chars.next_back()) {
+                (Some('<'), Some('>')) => Spec::Runtime(spec_chars.as_str()),
+                _ => Spec::CompileTime(specifier),
+            };
 
             let mut cursor = StrCursor::new(&inner[..position]);
 
-            let arg_type = parse::parse_argument(&mut cursor).unwrap_or_else(|| {
-                let arg_type = ArgType::Positional(*current_positional_index);
+            let arg_kind = parse::parse_argument(&mut cursor).unwrap_or_else(|| {
+                let arg_kind = ArgKind::Positional(*current_positional_index);
                 *current_positional_index += 1;
-                arg_type
+                arg_kind
             });
 
             assert!(cursor.remaining().is_empty(), "invalid format string");
 
-            Piece::CustomFmt { arg_type, spec }
+            Piece::CustomFmt { arg_kind, spec }
         }
         None => {
             let mut cursor = StrCursor::new(inner);
 
-            let mut has_arg_type = true;
-            let mut arg_type_position = parse::parse_argument(&mut cursor).unwrap_or_else(|| {
-                let arg_type = ArgType::Positional(*current_positional_index);
+            let mut has_arg_kind = true;
+            let mut arg_kind_position = parse::parse_argument(&mut cursor).unwrap_or_else(|| {
+                let arg_kind = ArgKind::Positional(*current_positional_index);
                 *current_positional_index += 1;
-                has_arg_type = false;
-                arg_type
+                has_arg_kind = false;
+                arg_kind
             });
 
-            let mut arg_type_width = None;
-            let mut arg_type_precision = None;
+            let mut arg_kind_width = None;
+            let mut arg_kind_precision = None;
 
             match cursor.next() {
                 Some(':') => {
@@ -244,8 +259,8 @@ fn process_fmt<'a>(fmt: &'a str, current_positional_index: &mut usize, new_forma
                     match parse::process_width(&mut cursor) {
                         None => (),
                         Some(Count::Integer(integer)) => *new_format_string += integer,
-                        Some(Count::Argument(arg_type_for_width)) => {
-                            arg_type_width = Some(arg_type_for_width);
+                        Some(Count::Argument(arg_kind_for_width)) => {
+                            arg_kind_width = Some(arg_kind_for_width);
                             write!(new_format_string, "{}$", *new_current_index).unwrap();
                             *new_current_index += 1;
                         }
@@ -254,22 +269,22 @@ fn process_fmt<'a>(fmt: &'a str, current_positional_index: &mut usize, new_forma
                     match parse::process_precision(&mut cursor) {
                         None => (),
                         Some(Precision::Asterisk) => {
-                            let new_arg_type = ArgType::Positional(*current_positional_index);
+                            let new_arg_kind = ArgKind::Positional(*current_positional_index);
                             *current_positional_index += 1;
 
-                            if has_arg_type {
-                                arg_type_precision = Some(new_arg_type);
+                            if has_arg_kind {
+                                arg_kind_precision = Some(new_arg_kind);
                             } else {
-                                arg_type_precision = Some(arg_type_position);
-                                arg_type_position = new_arg_type;
+                                arg_kind_precision = Some(arg_kind_position);
+                                arg_kind_position = new_arg_kind;
                             }
 
                             write!(new_format_string, ".{}$", *new_current_index).unwrap();
                             *new_current_index += 1;
                         }
                         Some(Precision::WithCount(Count::Integer(integer))) => write!(new_format_string, ".{}", integer).unwrap(),
-                        Some(Precision::WithCount(Count::Argument(arg_type_for_precision))) => {
-                            arg_type_precision = Some(arg_type_for_precision);
+                        Some(Precision::WithCount(Count::Argument(arg_kind_for_precision))) => {
+                            arg_kind_precision = Some(arg_kind_for_precision);
                             write!(new_format_string, ".{}$", *new_current_index).unwrap();
                             *new_current_index += 1;
                         }
@@ -281,7 +296,7 @@ fn process_fmt<'a>(fmt: &'a str, current_positional_index: &mut usize, new_forma
                 _ => panic!("invalid format string"),
             };
 
-            Piece::StdFmt { arg_type_position, arg_type_width, arg_type_precision }
+            Piece::StdFmt { arg_kind_position, arg_kind_width, arg_kind_precision }
         }
     };
 
@@ -321,7 +336,7 @@ fn parse_format_string(format_string: &str) -> (String, Vec<Piece>) {
 }
 
 /// Process list of pieces
-fn process_pieces<'a>(pieces: &'a [Piece], arguments: &[Argument]) -> (Vec<(usize, Option<&'a str>)>, Vec<&'a str>) {
+fn process_pieces<'a>(pieces: &'a [Piece], arguments: &[Argument]) -> (Vec<(usize, Option<Spec<'a>>)>, Vec<&'a str>) {
     let mut arguments_iter = arguments.iter();
     arguments_iter.position(|arg| arg.name.is_some());
     assert!(arguments_iter.all(|arg| arg.name.is_some()), "positional arguments cannot follow named arguments");
@@ -337,14 +352,14 @@ fn process_pieces<'a>(pieces: &'a [Piece], arguments: &[Argument]) -> (Vec<(usiz
     let mut new_args = Vec::new();
     let mut used_args = vec![false; arguments.len()];
 
-    let mut process_arg_type = |arg_type: &_, spec| {
-        let index = match *arg_type {
-            ArgType::Positional(index) => {
+    let mut process_arg_kind = |arg_kind: &_, spec| {
+        let index = match *arg_kind {
+            ArgKind::Positional(index) => {
                 assert!(index < arguments.len(), "invalid positional argument index: {}", index);
                 arg_indices.push((index, spec));
                 index
             }
-            ArgType::Named(ref ident) => match named_args_positions.entry(ident.name()) {
+            ArgKind::Named(ref ident) => match named_args_positions.entry(ident.name()) {
                 Entry::Occupied(entry) => {
                     let index = *entry.get();
                     arg_indices.push((index, spec));
@@ -367,12 +382,12 @@ fn process_pieces<'a>(pieces: &'a [Piece], arguments: &[Argument]) -> (Vec<(usiz
 
     for piece in pieces {
         match piece {
-            Piece::StdFmt { arg_type_position, arg_type_width, arg_type_precision } => {
-                for &arg_type in [Some(arg_type_position), arg_type_width.as_ref(), arg_type_precision.as_ref()].iter().flatten() {
-                    process_arg_type(arg_type, None)
+            Piece::StdFmt { arg_kind_position, arg_kind_width, arg_kind_precision } => {
+                for &arg_kind in [Some(arg_kind_position), arg_kind_width.as_ref(), arg_kind_precision.as_ref()].iter().flatten() {
+                    process_arg_kind(arg_kind, None)
                 }
             }
-            Piece::CustomFmt { arg_type, spec } => process_arg_type(arg_type, Some(*spec)),
+            Piece::CustomFmt { arg_kind, spec } => process_arg_kind(arg_kind, Some(*spec)),
         }
     }
 
@@ -404,10 +419,9 @@ fn write_literal_string(output: &mut String, s: &str) {
 fn compute_output(
     root_macro: &str,
     first_arg: Option<&str>,
-    compile_time: bool,
     new_format_string: &str,
     arguments: &[Argument],
-    arg_indices: &[(usize, Option<&str>)],
+    arg_indices: &[(usize, Option<Spec>)],
     new_args: &[&str],
 ) -> String {
     let mut output = String::new();
@@ -448,13 +462,12 @@ fn compute_output(
 
     write_literal_string(&mut output, new_format_string);
 
-    let func_new = if compile_time { "::custom_format::custom_formatter!" } else { "::custom_format::runtime::CustomFormatter::new" };
-
     for &(index, spec) in arg_indices {
         output.push_str(", ");
 
         match spec {
-            Some(spec) => write!(output, "{}(\"{}\", arg{})", func_new, spec, index).unwrap(),
+            Some(Spec::CompileTime(spec)) => write!(output, "::custom_format::custom_formatter!(\"{}\", arg{})", spec, index).unwrap(),
+            Some(Spec::Runtime(spec)) => write!(output, "::custom_format::runtime::CustomFormatter::new(\"{}\", arg{})", spec, index).unwrap(),
             None => write!(output, "arg{}", index).unwrap(),
         }
     }
@@ -465,7 +478,7 @@ fn compute_output(
 }
 
 /// Main function of the procedural macros
-pub(crate) fn fmt(input: TokenStream, skip_first: bool, root_macro: &str, compile_time: bool) -> String {
+pub(crate) fn fmt(input: TokenStream, skip_first: bool, root_macro: &str) -> String {
     if input.is_empty() {
         return format!("{}()", root_macro).parse().unwrap();
     }
@@ -479,7 +492,7 @@ pub(crate) fn fmt(input: TokenStream, skip_first: bool, root_macro: &str, compil
     let (new_format_string, pieces) = parse_format_string(&format_string);
     let (arg_indices, new_args) = process_pieces(&pieces, &arguments);
 
-    compute_output(root_macro, first_arg.as_deref(), compile_time, &new_format_string, &arguments, &arg_indices, &new_args)
+    compute_output(root_macro, first_arg.as_deref(), &new_format_string, &arguments, &arg_indices, &new_args)
 }
 
 #[cfg(test)]
@@ -562,28 +575,38 @@ mod test {
     fn test_process_fmt() {
         #[rustfmt::skip]
         let data = [
-            ("{ :}",            "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: "" }),
-            ("{ : \t\r\n }",    "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: "" }),
-            ("{ :\u{2000} }",   "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: "" }),
-            ("{ : : : }",       "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: " : :" }),
-            ("{ :%a }",         "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: "%a" }),
-            ("{ : éà }" ,       "{0}",             1, 1, Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: " éà" }),
-            ("{3 :%a }",        "{0}",             0, 1, Piece::CustomFmt { arg_type: ArgType::Positional(3), spec: "%a" }),
-            ("{éà :%a}",        "{0}",             0, 1, Piece::CustomFmt { arg_type: ArgType::Named(Id::new("éà")), spec: "%a" }),
-            ("{}",              "{0}",             1, 1, Piece::StdFmt { arg_type_position: ArgType::Positional(0),        arg_type_width: None,                               arg_type_precision: None }),
-            ("{:?}",            "{0:?}",           1, 1, Piece::StdFmt { arg_type_position: ArgType::Positional(0),        arg_type_width: None,                               arg_type_precision: None }),
-            ("{3:? }",          "{0:?}",           0, 1, Piece::StdFmt { arg_type_position: ArgType::Positional(3),        arg_type_width: None,                               arg_type_precision: None }),
-            ("{éà}",            "{0}",             0, 1, Piece::StdFmt { arg_type_position: ArgType::Named(Id::new("éà")), arg_type_width: None,                               arg_type_precision: None }),
-            ("{: ^+#03.6? }",   "{0: ^+#03.6?}",   1, 1, Piece::StdFmt { arg_type_position: ArgType::Positional(0),        arg_type_width: None,                               arg_type_precision: None }),
-            ("{: ^+#0a$.6? }",  "{0: ^+#01$.6?}",  1, 2, Piece::StdFmt { arg_type_position: ArgType::Positional(0),        arg_type_width: Some(ArgType::Named(Id::new("a"))), arg_type_precision: None }),
-            ("{: ^+#03.6$? }",  "{0: ^+#03.1$?}",  1, 2, Piece::StdFmt { arg_type_position: ArgType::Positional(0),        arg_type_width: None,                               arg_type_precision: Some(ArgType::Positional(6)) }),
-            ("{: ^+#03$.d$? }", "{0: ^+#01$.2$?}", 1, 3, Piece::StdFmt { arg_type_position: ArgType::Positional(0),        arg_type_width: Some(ArgType::Positional(3)),       arg_type_precision: Some(ArgType::Named(Id::new("d"))) }),
-            ("{: ^+#0z$.*? }",  "{0: ^+#01$.2$?}", 2, 3, Piece::StdFmt { arg_type_position: ArgType::Positional(1),        arg_type_width: Some(ArgType::Named(Id::new("z"))), arg_type_precision: Some(ArgType::Positional(0)) }),
-            ("{2: ^+#03$.*? }", "{0: ^+#01$.2$?}", 1, 3, Piece::StdFmt { arg_type_position: ArgType::Positional(2),        arg_type_width: Some(ArgType::Positional(3)),       arg_type_precision: Some(ArgType::Positional(0)) }),
-            ("{:1$? }",         "{0:1$?}",         1, 2, Piece::StdFmt { arg_type_position: ArgType::Positional(0),        arg_type_width: Some(ArgType::Positional(1)),       arg_type_precision: None }),
-            ("{:.2$? }",        "{0:.1$?}",        1, 2, Piece::StdFmt { arg_type_position: ArgType::Positional(0),        arg_type_width: None,                               arg_type_precision: Some(ArgType::Positional(2)) }),
-            ("{:.*? }",         "{0:.1$?}",        2, 2, Piece::StdFmt { arg_type_position: ArgType::Positional(1),        arg_type_width: None,                               arg_type_precision: Some(ArgType::Positional(0)) }),
-            ("{a:.*? }",        "{0:.1$?}",        1, 2, Piece::StdFmt { arg_type_position: ArgType::Named(Id::new("a")),  arg_type_width: None,                               arg_type_precision: Some(ArgType::Positional(0)) }),
+            ("{ :}",            "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::CompileTime("") }),
+            ("{ : \t\r\n }",    "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::CompileTime("") }),
+            ("{ :\u{2000} }",   "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::CompileTime("") }),
+            ("{ : : : }",       "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::CompileTime(" : :") }),
+            ("{ : <: :> }",     "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::CompileTime(" <: :>") }),
+            ("{ : éà }" ,       "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::CompileTime(" éà") }),
+            ("{ : <éà> }" ,     "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::CompileTime(" <éà>") }),
+            ("{3 :%a }",        "{0}",             0, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(3),        spec: Spec::CompileTime("%a") }),
+            ("{éà :%a}",        "{0}",             0, 1, Piece::CustomFmt { arg_kind: ArgKind::Named(Id::new("éà")), spec: Spec::CompileTime("%a") }),
+            ("{éà :<<<>>%a><}", "{0}",             0, 1, Piece::CustomFmt { arg_kind: ArgKind::Named(Id::new("éà")), spec: Spec::CompileTime("<<<>>%a><") }),
+            ("{ :<>}",          "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::Runtime("") }),
+            ("{ :<> \t\r\n }",  "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::Runtime("") }),
+            ("{ :<>\u{2000} }", "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::Runtime("") }),
+            ("{ :< : :> }",     "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::Runtime(" : :") }),
+            ("{ :<%a> }",       "{0}",             1, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(0),        spec: Spec::Runtime("%a") }),
+            ("{3 :<%a> }",      "{0}",             0, 1, Piece::CustomFmt { arg_kind: ArgKind::Positional(3),        spec: Spec::Runtime("%a") }),
+            ("{éà :<%a>}",      "{0}",             0, 1, Piece::CustomFmt { arg_kind: ArgKind::Named(Id::new("éà")), spec: Spec::Runtime("%a") }),
+            ("{éà :<<<>>%a>}",  "{0}",             0, 1, Piece::CustomFmt { arg_kind: ArgKind::Named(Id::new("éà")), spec: Spec::Runtime("<<>>%a") }),
+            ("{}",              "{0}",             1, 1, Piece::StdFmt { arg_kind_position: ArgKind::Positional(0),        arg_kind_width: None,                               arg_kind_precision: None }),
+            ("{:?}",            "{0:?}",           1, 1, Piece::StdFmt { arg_kind_position: ArgKind::Positional(0),        arg_kind_width: None,                               arg_kind_precision: None }),
+            ("{3:? }",          "{0:?}",           0, 1, Piece::StdFmt { arg_kind_position: ArgKind::Positional(3),        arg_kind_width: None,                               arg_kind_precision: None }),
+            ("{éà}",            "{0}",             0, 1, Piece::StdFmt { arg_kind_position: ArgKind::Named(Id::new("éà")), arg_kind_width: None,                               arg_kind_precision: None }),
+            ("{: ^+#03.6? }",   "{0: ^+#03.6?}",   1, 1, Piece::StdFmt { arg_kind_position: ArgKind::Positional(0),        arg_kind_width: None,                               arg_kind_precision: None }),
+            ("{: ^+#0a$.6? }",  "{0: ^+#01$.6?}",  1, 2, Piece::StdFmt { arg_kind_position: ArgKind::Positional(0),        arg_kind_width: Some(ArgKind::Named(Id::new("a"))), arg_kind_precision: None }),
+            ("{: ^+#03.6$? }",  "{0: ^+#03.1$?}",  1, 2, Piece::StdFmt { arg_kind_position: ArgKind::Positional(0),        arg_kind_width: None,                               arg_kind_precision: Some(ArgKind::Positional(6)) }),
+            ("{: ^+#03$.d$? }", "{0: ^+#01$.2$?}", 1, 3, Piece::StdFmt { arg_kind_position: ArgKind::Positional(0),        arg_kind_width: Some(ArgKind::Positional(3)),       arg_kind_precision: Some(ArgKind::Named(Id::new("d"))) }),
+            ("{: ^+#0z$.*? }",  "{0: ^+#01$.2$?}", 2, 3, Piece::StdFmt { arg_kind_position: ArgKind::Positional(1),        arg_kind_width: Some(ArgKind::Named(Id::new("z"))), arg_kind_precision: Some(ArgKind::Positional(0)) }),
+            ("{2: ^+#03$.*? }", "{0: ^+#01$.2$?}", 1, 3, Piece::StdFmt { arg_kind_position: ArgKind::Positional(2),        arg_kind_width: Some(ArgKind::Positional(3)),       arg_kind_precision: Some(ArgKind::Positional(0)) }),
+            ("{:1$? }",         "{0:1$?}",         1, 2, Piece::StdFmt { arg_kind_position: ArgKind::Positional(0),        arg_kind_width: Some(ArgKind::Positional(1)),       arg_kind_precision: None }),
+            ("{:.2$? }",        "{0:.1$?}",        1, 2, Piece::StdFmt { arg_kind_position: ArgKind::Positional(0),        arg_kind_width: None,                               arg_kind_precision: Some(ArgKind::Positional(2)) }),
+            ("{:.*? }",         "{0:.1$?}",        2, 2, Piece::StdFmt { arg_kind_position: ArgKind::Positional(1),        arg_kind_width: None,                               arg_kind_precision: Some(ArgKind::Positional(0)) }),
+            ("{a:.*? }",        "{0:.1$?}",        1, 2, Piece::StdFmt { arg_kind_position: ArgKind::Named(Id::new("a")),  arg_kind_width: None,                               arg_kind_precision: Some(ArgKind::Positional(0)) }),
         ];
 
         for &(fmt, result_new_format_string, result_current_positional_index, result_new_current_index, ref result_piece) in &data {
@@ -632,21 +655,21 @@ mod test {
 
     #[test]
     fn test_parse_format_string() {
-        let format_string = "aaaa }} {{}}{} {{{{ \" {:#.*} #{h : } {e \u{3A}3xxx\u{47}xxxxxxx  }, {:?}, { :}, {:?}, {},,{}, {8 :}";
+        let format_string = "aaaa }} {{}}{} {{{{ \" {:#.*} #{h :<z>} {e \u{3A}3xxx\u{47}xxxxxxx  }, {:?}, { :}, {:?}, {},,{}, {8 :<>}";
 
         let result_new_format_string = "aaaa }} {{}}{0} {{{{ \" {1:#.2$} #{3} {4}, {5:?}, {6}, {7:?}, {8},,{9}, {10}";
 
         let result_pieces = [
-            Piece::StdFmt { arg_type_position: ArgType::Positional(0), arg_type_width: None, arg_type_precision: None },
-            Piece::StdFmt { arg_type_position: ArgType::Positional(2), arg_type_width: None, arg_type_precision: Some(ArgType::Positional(1)) },
-            Piece::CustomFmt { arg_type: ArgType::Named(Id("h")), spec: "" },
-            Piece::CustomFmt { arg_type: ArgType::Named(Id("e")), spec: "3xxxGxxxxxxx" },
-            Piece::StdFmt { arg_type_position: ArgType::Positional(3), arg_type_width: None, arg_type_precision: None },
-            Piece::CustomFmt { arg_type: ArgType::Positional(4), spec: "" },
-            Piece::StdFmt { arg_type_position: ArgType::Positional(5), arg_type_width: None, arg_type_precision: None },
-            Piece::StdFmt { arg_type_position: ArgType::Positional(6), arg_type_width: None, arg_type_precision: None },
-            Piece::StdFmt { arg_type_position: ArgType::Positional(7), arg_type_width: None, arg_type_precision: None },
-            Piece::CustomFmt { arg_type: ArgType::Positional(8), spec: "" },
+            Piece::StdFmt { arg_kind_position: ArgKind::Positional(0), arg_kind_width: None, arg_kind_precision: None },
+            Piece::StdFmt { arg_kind_position: ArgKind::Positional(2), arg_kind_width: None, arg_kind_precision: Some(ArgKind::Positional(1)) },
+            Piece::CustomFmt { arg_kind: ArgKind::Named(Id("h")), spec: Spec::Runtime("z") },
+            Piece::CustomFmt { arg_kind: ArgKind::Named(Id("e")), spec: Spec::CompileTime("3xxxGxxxxxxx") },
+            Piece::StdFmt { arg_kind_position: ArgKind::Positional(3), arg_kind_width: None, arg_kind_precision: None },
+            Piece::CustomFmt { arg_kind: ArgKind::Positional(4), spec: Spec::CompileTime("") },
+            Piece::StdFmt { arg_kind_position: ArgKind::Positional(5), arg_kind_width: None, arg_kind_precision: None },
+            Piece::StdFmt { arg_kind_position: ArgKind::Positional(6), arg_kind_width: None, arg_kind_precision: None },
+            Piece::StdFmt { arg_kind_position: ArgKind::Positional(7), arg_kind_width: None, arg_kind_precision: None },
+            Piece::CustomFmt { arg_kind: ArgKind::Positional(8), spec: Spec::Runtime("") },
         ];
 
         let (new_format_string, pieces) = parse_format_string(format_string);
@@ -658,14 +681,14 @@ mod test {
     #[test]
     fn test_process_pieces() {
         let pieces = [
-            Piece::StdFmt { arg_type_position: ArgType::Named(Id::new("h")), arg_type_width: None, arg_type_precision: None },
-            Piece::CustomFmt { arg_type: ArgType::Named(Id::new("h")), spec: "%z" },
-            Piece::StdFmt { arg_type_position: ArgType::Positional(1), arg_type_width: None, arg_type_precision: None },
-            Piece::StdFmt { arg_type_position: ArgType::Named(Id::new("a")), arg_type_width: None, arg_type_precision: None },
-            Piece::StdFmt { arg_type_position: ArgType::Positional(3), arg_type_width: None, arg_type_precision: None },
-            Piece::StdFmt { arg_type_position: ArgType::Named(Id::new("b")), arg_type_width: None, arg_type_precision: None },
-            Piece::StdFmt { arg_type_position: ArgType::Positional(1), arg_type_width: None, arg_type_precision: Some(ArgType::Positional(0)) },
-            Piece::StdFmt { arg_type_position: ArgType::Positional(3), arg_type_width: Some(ArgType::Named(Id::new("g"))), arg_type_precision: None },
+            Piece::StdFmt { arg_kind_position: ArgKind::Named(Id::new("h")), arg_kind_width: None, arg_kind_precision: None },
+            Piece::CustomFmt { arg_kind: ArgKind::Named(Id::new("h")), spec: Spec::CompileTime("%z") },
+            Piece::StdFmt { arg_kind_position: ArgKind::Positional(1), arg_kind_width: None, arg_kind_precision: None },
+            Piece::StdFmt { arg_kind_position: ArgKind::Named(Id::new("a")), arg_kind_width: None, arg_kind_precision: None },
+            Piece::StdFmt { arg_kind_position: ArgKind::Positional(3), arg_kind_width: None, arg_kind_precision: None },
+            Piece::StdFmt { arg_kind_position: ArgKind::Named(Id::new("b")), arg_kind_width: None, arg_kind_precision: None },
+            Piece::StdFmt { arg_kind_position: ArgKind::Positional(1), arg_kind_width: None, arg_kind_precision: Some(ArgKind::Positional(0)) },
+            Piece::StdFmt { arg_kind_position: ArgKind::Positional(3), arg_kind_width: Some(ArgKind::Named(Id::new("g"))), arg_kind_precision: None },
         ];
 
         let arguments = [
@@ -675,7 +698,9 @@ mod test {
             Argument { name: Some("c".to_owned()), expr: "".to_owned() },
         ];
 
-        let result_arg_indices = [(4, None), (4, Some("%z")), (1, None), (1, None), (3, None), (2, None), (1, None), (0, None), (3, None), (5, None)];
+        let result_arg_indices =
+            [(4, None), (4, Some(Spec::CompileTime("%z"))), (1, None), (1, None), (3, None), (2, None), (1, None), (0, None), (3, None), (5, None)];
+
         let result_new_args = ["h", "g"];
 
         let (arg_indices, new_args) = process_pieces(&pieces, &arguments);
@@ -699,7 +724,7 @@ mod test {
     #[test]
     #[should_panic(expected = "invalid positional argument index: 0")]
     fn test_process_pieces_invalid_positional_argument() {
-        process_pieces(&[Piece::CustomFmt { arg_type: ArgType::Positional(0), spec: "" }], &[]);
+        process_pieces(&[Piece::CustomFmt { arg_kind: ArgKind::Positional(0), spec: Spec::CompileTime("") }], &[]);
     }
 
     #[test]
@@ -753,36 +778,36 @@ mod test {
             Argument { name: Some("c".to_owned()), expr: r#""3""#.to_owned() },
         ];
 
-        let arg_indices = [(4, None), (4, Some("%z")), (1, None), (1, None), (3, None), (2, Some("%x")), (1, None), (0, None), (3, None), (5, None)];
+        let arg_indices = [
+            (4, None),
+            (4, Some(Spec::CompileTime("%z"))),
+            (1, None),
+            (1, None),
+            (3, None),
+            (2, Some(Spec::Runtime("%x"))),
+            (1, None),
+            (0, None),
+            (3, None),
+            (5, None),
+        ];
+
         let new_args = ["h", "g"];
 
-        let result_runtime = concat!(
-            r#"match (&("0"), &("1"), &("2"), &("3"), &(h), &(g)) { (arg0, arg1, arg2, arg3, arg4, arg5) => { "#,
-            r#"::std::println!("{0}, {1}, {2}, {3}, {4}, {5}, {6:.7$}, {8:9$}", arg4, "#,
-            r#"::custom_format::runtime::CustomFormatter::new("%z", arg4), arg1, arg1, arg3, "#,
-            r#"::custom_format::runtime::CustomFormatter::new("%x", arg2), arg1, arg0, arg3, arg5) } }"#
-        );
-
-        let result_compile_time = concat!(
+        let result = concat!(
             r#"match (&("0"), &("1"), &("2"), &("3"), &(h), &(g)) { (arg0, arg1, arg2, arg3, arg4, arg5) => { "#,
             r#"::std::println!("{0}, {1}, {2}, {3}, {4}, {5}, {6:.7$}, {8:9$}", arg4, "#,
             r#"::custom_format::custom_formatter!("%z", arg4), arg1, arg1, arg3, "#,
-            r#"::custom_format::custom_formatter!("%x", arg2), arg1, arg0, arg3, arg5) } }"#
+            r#"::custom_format::runtime::CustomFormatter::new("%x", arg2), arg1, arg0, arg3, arg5) } }"#
         );
 
-        let output_runtime = compute_output("::std::println!", None, false, new_format_string, &arguments, &arg_indices, &new_args);
-        let output_compile_time = compute_output("::std::println!", None, true, new_format_string, &arguments, &arg_indices, &new_args);
+        let output = compute_output("::std::println!", None, new_format_string, &arguments, &arg_indices, &new_args);
 
-        assert_eq!(output_runtime, result_runtime);
-        assert_eq!(output_compile_time, result_compile_time);
+        assert_eq!(output, result);
     }
 
     #[test]
     fn test_compute_output_with_first_arg() {
-        let output_runtime = compute_output("::std::writeln!", Some("f"), false, "string", &[], &[], &[]);
-        let output_compile_time = compute_output("::std::writeln!", Some("f"), false, "string", &[], &[], &[]);
-
-        assert_eq!(output_runtime, "match () { () => { ::std::writeln!(f, \"string\") } }");
-        assert_eq!(output_compile_time, "match () { () => { ::std::writeln!(f, \"string\") } }");
+        let output = compute_output("::std::writeln!", Some("f"), "string", &[], &[], &[]);
+        assert_eq!(output, "match () { () => { ::std::writeln!(f, \"string\") } }");
     }
 }

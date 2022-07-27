@@ -43,12 +43,6 @@ proc-macro2 = "1.0"
 unicode-normalization = { version = "0.1.21", default-features = false }
 
 [features]
-# Compile-time formatting
-compile-time = []
-
-# Runtime formatting
-runtime = []
-
 # Better parsing (longer compile time)
 better-parsing = ["syn", "quote", "proc-macro2"]
 

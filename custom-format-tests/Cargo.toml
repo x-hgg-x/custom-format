@@ -11,3 +11,4 @@ custom-format = { path = "..", default-features = false }
 compile-time = ["custom-format/compile-time"]
 runtime = ["custom-format/runtime"]
 better-parsing = ["custom-format/better-parsing"]
+default = ["compile-time", "runtime", "better-parsing"]

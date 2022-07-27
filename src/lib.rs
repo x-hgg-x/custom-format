@@ -8,13 +8,13 @@
 //!
 //! This library comes in two flavors, corresponding to the following features:
 //!
-//! - `compile-time`
+//! - `compile-time` (*enabled by default*)
 //!
 //!     The set of possible custom format specifiers is defined at compilation, so invalid specifiers can be checked at compile-time.
 //!     This allows the library to have the same performance as when using the standard library formatting traits.
 //!     See the [`compile_time::CustomFormat`](crate::compile_time::CustomFormat) trait.
 //!
-//! - `runtime`
+//! - `runtime` (*enabled by default*)
 //!
 //!     The formatting method dynamically checks the format specifier at runtime for each invocation.
 //!     This is a slower version, but has a lower MSRV for greater compatibility.
@@ -30,18 +30,21 @@
 //!
 //! This works for 99% of cases but cannot parse correctly expressions containing commas inside turbofishs or closures without delimiters:
 //!
-//! ```rust
+//! ```rust,ignore
+//! use custom_format as cfmt;
+//! use std::collections::HashMap;
+//!
 //! // Compilation error due to incorrect parsing
-//! cfmt::println!("{ :?}", |a, b| a);
 //! cfmt::println!("{:?}", HashMap::<u32, u32>::new());
 //! ```
 //!
 //! The workaround is simply to add an additional delimited group, or to define a new variable:
 //!
 //! ```rust
+//! # use custom_format as cfmt;
+//! # use std::collections::HashMap;
 //! // No compilation error
 //!
-//! cfmt::println!("{ :?}", (|a, b| a)); // if a custom specifier is defined
 //! cfmt::println!("{:?}", (HashMap::<u32, u32>::new()));
 //! cfmt::println!("{:?}", { HashMap::<u32, u32>::new() });
 //!
@@ -55,3 +58,13 @@ pub mod compile_time;
 
 #[cfg(feature = "runtime")]
 pub mod runtime;
+
+pub use custom_format_macros::eprint;
+pub use custom_format_macros::eprintln;
+pub use custom_format_macros::format;
+pub use custom_format_macros::format_args;
+pub use custom_format_macros::panic;
+pub use custom_format_macros::print;
+pub use custom_format_macros::println;
+pub use custom_format_macros::write;
+pub use custom_format_macros::writeln;

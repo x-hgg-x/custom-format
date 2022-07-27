@@ -21,13 +21,13 @@ custom-format-macros = { version = "0.1.2", path = "custom-format-macros", defau
 
 [features]
 # Compile-time formatting
-compile-time = ["custom-format-macros/compile-time"]
+compile-time = []
 
 # Runtime formatting
-runtime = ["custom-format-macros/runtime"]
+runtime = []
 
 # Better parsing (longer compile time)
 better-parsing = ["custom-format-macros/better-parsing"]
 
 # Default
-default = ["better-parsing"]
+default = ["compile-time", "runtime", "better-parsing"]

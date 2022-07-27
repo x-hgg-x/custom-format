@@ -9,7 +9,8 @@ pub trait CustomFormat<const SPEC: u128> {
     /// # Examples
     ///
     /// ```rust
-    /// use custom_format::compile_time::{self as cfmt, spec, CustomFormat};
+    /// use custom_format as cfmt;
+    /// use custom_format::compile_time::{spec, CustomFormat};
     ///
     /// use core::fmt;
     ///
@@ -34,8 +35,8 @@ pub trait CustomFormat<const SPEC: u128> {
     /// The following statement doesn't compile since `"z"` is not a valid format specifier:
     ///
     /// ```rust,compile_fail
-    /// # use custom_format::compile_time::{self as cfmt, CustomFormat};
-    /// # use custom_format::custom_formatter;
+    /// # use custom_format as cfmt;
+    /// # use custom_format::compile_time::{spec, CustomFormat};
     /// # use core::fmt;
     /// # struct Hex(u8);
     /// # impl CustomFormat<{ cfmt::spec("x") }> for Hex {
@@ -71,7 +72,7 @@ impl<'a, T, const SPEC: u128> CustomFormatter<'a, T, SPEC> {
     }
 }
 
-/// Helper macro for constructing a new [`CustomFormatter`] value from a format specifier
+/// Helper macro for constructing a new [`compile_time::CustomFormatter`](CustomFormatter) value from a format specifier
 #[macro_export]
 macro_rules! custom_formatter {
     ($spec:literal, $value:expr) => {{
@@ -106,13 +107,3 @@ pub const fn spec(s: &str) -> u128 {
 
     u128::from_le_bytes(result)
 }
-
-pub use custom_format_macros::compile_time_eprint as eprint;
-pub use custom_format_macros::compile_time_eprintln as eprintln;
-pub use custom_format_macros::compile_time_format as format;
-pub use custom_format_macros::compile_time_format_args as format_args;
-pub use custom_format_macros::compile_time_panic as panic;
-pub use custom_format_macros::compile_time_print as print;
-pub use custom_format_macros::compile_time_println as println;
-pub use custom_format_macros::compile_time_write as write;
-pub use custom_format_macros::compile_time_writeln as writeln;

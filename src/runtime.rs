@@ -9,14 +9,14 @@ pub trait CustomFormat {
     /// # Examples
     ///
     /// ```rust
-    /// use custom_format::runtime::{self as cfmt, CustomFormat};
+    /// use custom_format as cfmt;
     ///
     /// use core::fmt;
     ///
     /// #[derive(Debug)]
     /// struct Hex(u8);
     ///
-    /// impl CustomFormat for Hex {
+    /// impl cfmt::runtime::CustomFormat for Hex {
     ///     fn fmt(&self, f: &mut fmt::Formatter, spec: &str) -> fmt::Result {
     ///         match spec {
     ///             "x" => write!(f, "{:#02x}", self.0),
@@ -26,16 +26,17 @@ pub trait CustomFormat {
     ///     }
     /// }
     ///
-    /// assert_eq!(cfmt::format!("{0:X?}, {0 :x}, {0 :X}", Hex(0xAB)), "Hex(AB), 0xab, 0xAB");
+    /// // The custom format specifier is interpreted as a runtime specifier when it is inside "<>"
+    /// assert_eq!(cfmt::format!("{0:X?}, {0 :<x>}, {0 :<X>}", Hex(0xAB)), "Hex(AB), 0xab, 0xAB");
     /// ```
     ///
     /// The following statement panics at runtime since `"z"` is not a valid format specifier:
     ///
     /// ```rust,should_panic
-    /// # use custom_format::runtime::{self as cfmt, CustomFormat};
+    /// # use custom_format as cfmt;
     /// # use core::fmt;
     /// # struct Hex(u8);
-    /// # impl CustomFormat for Hex {
+    /// # impl cfmt::runtime::CustomFormat for Hex {
     /// #     fn fmt(&self, f: &mut fmt::Formatter, spec: &str) -> fmt::Result {
     /// #         match spec {
     /// #             "x" => write!(f, "{:#02x}", self.0),
@@ -44,7 +45,7 @@ pub trait CustomFormat {
     /// #         }
     /// #     }
     /// # }
-    /// cfmt::println!("{ :z}", Hex(0));
+    /// cfmt::println!("{ :<z>}", Hex(0));
     /// ```
     ///
     fn fmt(&self, f: &mut fmt::Formatter, spec: &str) -> fmt::Result;
@@ -71,13 +72,3 @@ impl<T: CustomFormat> fmt::Display for CustomFormatter<'_, T> {
         CustomFormat::fmt(self.value, f, self.spec)
     }
 }
-
-pub use custom_format_macros::runtime_eprint as eprint;
-pub use custom_format_macros::runtime_eprintln as eprintln;
-pub use custom_format_macros::runtime_format as format;
-pub use custom_format_macros::runtime_format_args as format_args;
-pub use custom_format_macros::runtime_panic as panic;
-pub use custom_format_macros::runtime_print as print;
-pub use custom_format_macros::runtime_println as println;
-pub use custom_format_macros::runtime_write as write;
-pub use custom_format_macros::runtime_writeln as writeln;

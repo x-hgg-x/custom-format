@@ -1,7 +1,7 @@
 //! Functions used for parsing standard format specifier.
 
 use super::utils::StrCursor;
-use super::{ArgType, Count, Id, Precision};
+use super::{ArgKind, Count, Id, Precision};
 
 /// Process standard fill and alignment specifiers
 pub(super) fn process_align(cursor: &mut StrCursor) -> [Option<char>; 2] {
@@ -96,7 +96,7 @@ pub(super) fn process_count<'a>(cursor: &mut StrCursor<'a>) -> Option<Count<'a>>
 
     // Try parsing as argument with '$'
     match parse_argument(cursor) {
-        Some(arg_type) if cursor.next() == Some('$') => return Some(Count::Argument(arg_type)),
+        Some(arg_kind) if cursor.next() == Some('$') => return Some(Count::Argument(arg_kind)),
         _ => *cursor = old_cursor,
     }
 
@@ -108,11 +108,11 @@ pub(super) fn process_count<'a>(cursor: &mut StrCursor<'a>) -> Option<Count<'a>>
 }
 
 /// Parse argument in a format specifier
-pub(super) fn parse_argument<'a>(cursor: &mut StrCursor<'a>) -> Option<ArgType<'a>> {
+pub(super) fn parse_argument<'a>(cursor: &mut StrCursor<'a>) -> Option<ArgKind<'a>> {
     // Try parsing as integer
     let integer_argument = cursor.read_while(|c| c.is_ascii_digit());
     if !integer_argument.is_empty() {
-        return Some(ArgType::Positional(integer_argument.parse().unwrap()));
+        return Some(ArgKind::Positional(integer_argument.parse().unwrap()));
     }
 
     // Try parsing as identifier
@@ -138,7 +138,7 @@ pub(super) fn parse_argument<'a>(cursor: &mut StrCursor<'a>) -> Option<ArgType<'
         }
     };
 
-    Some(ArgType::Named(Id::new(identifier)))
+    Some(ArgKind::Named(Id::new(identifier)))
 }
 
 #[cfg(test)]
@@ -202,10 +202,10 @@ mod test {
     #[test]
     fn test_parse_argument() {
         let data = [
-            ("05sdkfh-", Some(ArgType::Positional(5)), "sdkfh-"),
-            ("_sdkfh-", Some(ArgType::Named(Id::new("_sdkfh"))), "-"),
-            ("_é€", Some(ArgType::Named(Id::new("_é"))), "€"),
-            ("é€", Some(ArgType::Named(Id::new("é"))), "€"),
+            ("05sdkfh-", Some(ArgKind::Positional(5)), "sdkfh-"),
+            ("_sdkfh-", Some(ArgKind::Named(Id::new("_sdkfh"))), "-"),
+            ("_é€", Some(ArgKind::Named(Id::new("_é"))), "€"),
+            ("é€", Some(ArgKind::Named(Id::new("é"))), "€"),
             ("@é€", None, "@é€"),
             ("€", None, "€"),
         ];
@@ -233,10 +233,10 @@ mod test {
     fn test_process_width() {
         let data = [
             ("05sdkfh$-", Some(Count::Integer("05")), "sdkfh$-"),
-            ("05$sdkfh-", Some(Count::Argument(ArgType::Positional(5))), "sdkfh-"),
-            ("_sdkfh$-", Some(Count::Argument(ArgType::Named(Id::new("_sdkfh")))), "-"),
-            ("_é$€", Some(Count::Argument(ArgType::Named(Id::new("_é")))), "€"),
-            ("é$€", Some(Count::Argument(ArgType::Named(Id::new("é")))), "€"),
+            ("05$sdkfh-", Some(Count::Argument(ArgKind::Positional(5))), "sdkfh-"),
+            ("_sdkfh$-", Some(Count::Argument(ArgKind::Named(Id::new("_sdkfh")))), "-"),
+            ("_é$€", Some(Count::Argument(ArgKind::Named(Id::new("_é")))), "€"),
+            ("é$€", Some(Count::Argument(ArgKind::Named(Id::new("é")))), "€"),
             ("_sdkfh-$", None, "_sdkfh-$"),
             ("_é€$", None, "_é€$"),
             ("é€$", None, "é€$"),
@@ -256,10 +256,10 @@ mod test {
         let data = [
             (".*--", Some(Precision::Asterisk), "--"),
             (".05sdkfh$-", Some(Precision::WithCount(Count::Integer("05"))), "sdkfh$-"),
-            (".05$sdkfh-", Some(Precision::WithCount(Count::Argument(ArgType::Positional(5)))), "sdkfh-"),
-            ("._sdkfh$-", Some(Precision::WithCount(Count::Argument(ArgType::Named(Id::new("_sdkfh"))))), "-"),
-            ("._é$€", Some(Precision::WithCount(Count::Argument(ArgType::Named(Id::new("_é"))))), "€"),
-            (".é$€", Some(Precision::WithCount(Count::Argument(ArgType::Named(Id::new("é"))))), "€"),
+            (".05$sdkfh-", Some(Precision::WithCount(Count::Argument(ArgKind::Positional(5)))), "sdkfh-"),
+            ("._sdkfh$-", Some(Precision::WithCount(Count::Argument(ArgKind::Named(Id::new("_sdkfh"))))), "-"),
+            ("._é$€", Some(Precision::WithCount(Count::Argument(ArgKind::Named(Id::new("_é"))))), "€"),
+            (".é$€", Some(Precision::WithCount(Count::Argument(ArgKind::Named(Id::new("é"))))), "€"),
             ("05sdkfh$-", None, "05sdkfh$-"),
             ("05$sdkfh-", None, "05$sdkfh-"),
             ("_sdkfh$-", None, "_sdkfh$-"),
