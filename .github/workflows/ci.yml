@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  schedule:
+    - cron: "0 0 * * 0"
+
+jobs:
+  check:
+    name: "Check"
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        id: actions-rs
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Lint
+        run: cargo clippy -- -D warnings
+
+  doc:
+    name: "Doc"
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        id: actions-rs
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - name: Doc
+        run: RUSTDOCFLAGS="-D warnings --cfg docsrs" cargo doc --all-features --no-deps
+
+  test:
+    strategy:
+      matrix:
+        rust: [1.48, 1.51, stable, nightly]
+        include:
+          - features: "--features=default"
+          - rust: 1.48
+            features: "--no-default-features --features=runtime"
+
+    name: 'Test/${{ matrix.rust }}/Features="${{ matrix.features }}"'
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        id: actions-rs
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - name: Test
+        run: |
+          cargo test ${{ matrix.features }}
+          sh -c "cd custom-format-macros && cargo test"
+          sh -c "cd custom-format-tests  && cargo test ${{ matrix.features }}"
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: true
