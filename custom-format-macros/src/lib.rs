@@ -7,7 +7,9 @@ mod fmt;
 
 use proc_macro::TokenStream;
 
-/// Parse custom format specifiers in format string and write output tokens
+/// Parse custom format specifiers in format string and write output tokens.
+///
+/// This is an internal unstable macro and should not be used directly.
 #[proc_macro]
 #[allow(clippy::useless_conversion)]
 pub fn fmt(input: TokenStream) -> TokenStream {
