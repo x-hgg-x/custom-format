@@ -76,35 +76,33 @@ fn main() {
             }
         }
 
-        let date_time = DateTime { year: 1836, month: 5, month_day: 18, hour: 23, minute: 45, second: 54, nanoseconds: 123456789 };
+        let dt = DateTime { year: 1836, month: 5, month_day: 18, hour: 23, minute: 45, second: 54, nanoseconds: 123456789 };
 
         // Expands to:
         //
-        // match (&(date_time), &("DateTime")) {
-        //     (arg0, arg1) => {
-        //         ::std::println!(
-        //             "The {0:?} is: {1}-{2}-{3} {4}:{5}:{6}.{7}",
-        //             arg1,
-        //             ::custom_format::custom_formatter!("%Y", arg0),
-        //             ::custom_format::custom_formatter!("%m", arg0),
-        //             ::custom_format::custom_formatter!("%d", arg0),
-        //             ::custom_format::custom_formatter!("%H", arg0),
-        //             ::custom_format::custom_formatter!("%M", arg0),
-        //             ::custom_format::custom_formatter!("%S", arg0),
-        //             ::custom_format::runtime::CustomFormatter::new("%6N", arg0)
-        //         )
-        //     }
+        // match (&("DateTime"), &dt) {
+        //     (arg0, arg1) => ::std::println!(
+        //         "The {0:?} is: {1}-{2}-{3} {4}:{5}:{6}.{7}",
+        //         arg0,
+        //         ::custom_format::custom_formatter!("%Y", arg1),
+        //         ::custom_format::custom_formatter!("%m", arg1),
+        //         ::custom_format::custom_formatter!("%d", arg1),
+        //         ::custom_format::custom_formatter!("%H", arg1),
+        //         ::custom_format::custom_formatter!("%M", arg1),
+        //         ::custom_format::custom_formatter!("%S", arg1),
+        //         ::custom_format::runtime::CustomFormatter::new("%6N", arg1)
+        //     ),
         // }
         //
         // Output: `The "DateTime" is: 1836-05-18 23:45:54.123456`
         //
         // The custom format specifier is interpreted as a compile-time specifier by default, or as a runtime specifier if it is inside "<>".
-        cfmt::println!("The {ty:?} is: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :<%6N>}", date_time, ty = "DateTime");
+        cfmt::println!("The {ty:?} is: {dt :%Y}-{dt :%m}-{dt :%d} {dt :%H}:{dt :%M}:{dt :%S}.{dt :<%6N>}", ty = "DateTime");
 
         // Compile-time error since "%h" is not a valid format specifier
-        // cfmt::println!("{0 :%h}", date_time);
+        // cfmt::println!("{0 :%h}", dt);
 
         // Panic at runtime since "%h" is not a valid format specifier
-        // cfmt::println!("{0 :<%h>}", date_time);
+        // cfmt::println!("{0 :<%h>}", dt);
     }
 }

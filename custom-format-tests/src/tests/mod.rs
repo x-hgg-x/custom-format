@@ -1,33 +1,38 @@
 use custom_format as cfmt;
 
 #[test]
-fn test_format_args_macro() {
-    println!("{}", cfmt::format_args!("string"));
-    cfmt::println!("{}", format_args!("string"));
-    cfmt::println!("{}", cfmt::format_args!("string"));
-}
-
-#[test]
-fn test_print_macros() {
+fn test_print() {
     cfmt::print!("string\n");
+    cfmt::print!("{}", "string\n");
     cfmt::println!("string");
+    cfmt::println!("{}", "string");
     cfmt::eprint!("string\n");
+    cfmt::eprint!("{}", "string\n");
     cfmt::eprintln!("string");
+    cfmt::eprintln!("{}", "string");
 }
 
 #[test]
-fn test_write_macros() {
+fn test_write() {
     use std::io::Write;
 
     let mut v = Vec::new();
     let _ = cfmt::write!(v, "string\n");
+    let _ = cfmt::write!(v, "{}", "string\n");
     let _ = cfmt::writeln!(v, "string");
+    let _ = cfmt::writeln!(v, "{}", "string");
 }
 
 #[test]
 #[should_panic(expected = "string")]
-fn test_panic_macro() {
-    cfmt::panic!("string")
+fn test_panic_1() {
+    cfmt::panic!("string");
+}
+
+#[test]
+#[should_panic(expected = "string")]
+fn test_panic_2() {
+    cfmt::panic!("{}", "string");
 }
 
 #[test]
@@ -48,7 +53,8 @@ fn test_std_fmt() {
     assert_eq!(cfmt::format!("The number is {}", 1), "The number is 1");
     assert_eq!(cfmt::format!("{:?}", (3, 4)), "(3, 4)");
     assert_eq!(cfmt::format!("{value}", value = 4), "4");
-    assert_eq!(cfmt::format!("Hello {people}!", people = "Rustaceans"), "Hello Rustaceans!");
+    let people = "Rustaceans";
+    assert_eq!(cfmt::format!("Hello {people}!"), "Hello Rustaceans!");
     assert_eq!(cfmt::format!("{} {}", 1, 2), "1 2");
     assert_eq!(cfmt::format!("{:04}", 42), "0042");
     assert_eq!(cfmt::format!("{:#?}", (100, 200)), "(\n    100,\n    200,\n)");
@@ -60,6 +66,8 @@ fn test_std_fmt() {
     assert_eq!(cfmt::format!("Hello {:1$}!", "x", 5), "Hello x    !");
     assert_eq!(cfmt::format!("Hello {1:0$}!", 5, "x"), "Hello x    !");
     assert_eq!(cfmt::format!("Hello {:width$}!", "x", width = 5), "Hello x    !");
+    let width = 5;
+    assert_eq!(cfmt::format!("Hello {:width$}!", "x"), "Hello x    !");
     assert_eq!(cfmt::format!("Hello {:<5}!", "x"), "Hello x    !");
     assert_eq!(cfmt::format!("Hello {:-<5}!", "x"), "Hello x----!");
     assert_eq!(cfmt::format!("Hello {:^5}!", "x"), "Hello   x  !");
@@ -139,7 +147,6 @@ fn test_custom_formatter() {
         b = 2,
         c = Custom(6),
         e = { g },
-        h = h,
     );
 
     assert_eq!(

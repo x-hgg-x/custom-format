@@ -2,20 +2,15 @@
 
 run() {
     RUSTC=$1
-    FEATURES_1=$2
-    FEATURES_2=$3
+    shift
+    FEATURES="$@"
 
-    cargo +$RUSTC test --no-default-features --features=$FEATURES_1
-    cargo +$RUSTC test --no-default-features --features=$FEATURES_1,$FEATURES_2
-
-    sh -c "cd custom-format-tests  && cargo +$RUSTC test --no-default-features --features=$FEATURES_1"
-    sh -c "cd custom-format-tests  && cargo +$RUSTC test --no-default-features --features=$FEATURES_1,$FEATURES_2"
-
-    sh -c "cd custom-format-macros && cargo +$RUSTC test --no-default-features"
-    sh -c "cd custom-format-macros && cargo +$RUSTC test --no-default-features --features=$FEATURES_2"
+    cargo +$RUSTC test $FEATURES
+    sh -c "cd custom-format-macros && cargo +$RUSTC test"
+    sh -c "cd custom-format-tests  && cargo +$RUSTC test $FEATURES"
 }
 
-run 1.45 "runtime" "better-parsing"
-run 1.51 "compile-time,runtime" "better-parsing"
-run stable "compile-time,runtime" "better-parsing"
-run nightly "compile-time,runtime" "better-parsing"
+run 1.48 --no-default-features --features=runtime
+run 1.51
+run stable
+run nightly

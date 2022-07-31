@@ -1,12 +1,12 @@
 # custom-format
 
 [![version](https://img.shields.io/crates/v/custom-format?color=blue&style=flat-square)](https://crates.io/crates/custom-format)
-![Minimum supported Rust version](https://img.shields.io/badge/rustc-1.45+-important?logo=rust "Minimum Supported Rust Version")
+![Minimum supported Rust version](https://img.shields.io/badge/rustc-1.48+-important?logo=rust "Minimum Supported Rust Version")
 [![Documentation](https://docs.rs/custom-format/badge.svg)](https://docs.rs/custom-format)
 
 This crate extends the standard formatting syntax with custom format specifiers, by providing custom formatting macros.
 
-It uses ` :` (a space and a colon) as a separator before the format specifier, which is not a syntax currently accepted and allows supporting standard specifiers in addition to custom specifiers.
+It uses ` :` (a space and a colon) as a separator before the format specifier, which is not a syntax currently accepted and allows supporting standard specifiers in addition to custom specifiers. It also supports [format args capture](https://blog.rust-lang.org/2022/01/13/Rust-1.58.0.html#captured-identifiers-in-format-strings) even on older versions of Rust, since it manually adds the named parameter if missing.
 
 This library comes in two flavors, corresponding to the following features:
 
@@ -105,7 +105,7 @@ impl cfmt::runtime::CustomFormat for DateTime {
     }
 }
 
-let date_time = DateTime {
+let dt = DateTime {
     year: 1836,
     month: 5,
     month_day: 18,
@@ -117,20 +117,18 @@ let date_time = DateTime {
 
 // Expands to:
 //
-// match (&(date_time), &("DateTime")) {
-//     (arg0, arg1) => {
-//         ::std::println!(
-//             "The {0:?} is: {1}-{2}-{3} {4}:{5}:{6}.{7}",
-//             arg1,
-//             ::custom_format::custom_formatter!("%Y", arg0),
-//             ::custom_format::custom_formatter!("%m", arg0),
-//             ::custom_format::custom_formatter!("%d", arg0),
-//             ::custom_format::custom_formatter!("%H", arg0),
-//             ::custom_format::custom_formatter!("%M", arg0),
-//             ::custom_format::custom_formatter!("%S", arg0),
-//             ::custom_format::runtime::CustomFormatter::new("%6N", arg0)
-//         )
-//     }
+// match (&("DateTime"), &dt) {
+//     (arg0, arg1) => ::std::println!(
+//         "The {0:?} is: {1}-{2}-{3} {4}:{5}:{6}.{7}",
+//         arg0,
+//         ::custom_format::custom_formatter!("%Y", arg1),
+//         ::custom_format::custom_formatter!("%m", arg1),
+//         ::custom_format::custom_formatter!("%d", arg1),
+//         ::custom_format::custom_formatter!("%H", arg1),
+//         ::custom_format::custom_formatter!("%M", arg1),
+//         ::custom_format::custom_formatter!("%S", arg1),
+//         ::custom_format::runtime::CustomFormatter::new("%6N", arg1)
+//     ),
 // }
 //
 // Output: `The "DateTime" is: 1836-05-18 23:45:54.123456`
@@ -138,23 +136,22 @@ let date_time = DateTime {
 // The custom format specifier is interpreted as a compile-time specifier by default,
 // or as a runtime specifier if it is inside "<>".
 cfmt::println!(
-    "The {ty:?} is: {0 :%Y}-{0 :%m}-{0 :%d} {0 :%H}:{0 :%M}:{0 :%S}.{0 :<%6N>}",
-    date_time,
+    "The {ty:?} is: {dt :%Y}-{dt :%m}-{dt :%d} {dt :%H}:{dt :%M}:{dt :%S}.{dt :<%6N>}",
     ty = "DateTime",
 );
 
 // Compile-time error since "%h" is not a valid format specifier
-// cfmt::println!("{0 :%h}", date_time);
+// cfmt::println!("{0 :%h}", dt);
 
 // Panic at runtime since "%h" is not a valid format specifier
-// cfmt::println!("{0 :<%h>}", date_time);
+// cfmt::println!("{0 :<%h>}", dt);
 ```
 
 </details>
 
 ## Compiler support
 
-Requires `rustc 1.45+` for the `runtime` feature and `rustc 1.51+` for the `compile-time` feature.
+Requires `rustc 1.48+` for the `runtime` feature and `rustc 1.51+` for the `compile-time` feature.
 
 ## License
 

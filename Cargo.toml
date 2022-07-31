@@ -13,21 +13,10 @@ keywords = ["no-std", "format", "string", "fmt", "macro"]
 categories = ["no-std", "rust-patterns", "value-formatting"]
 readme = "README.md"
 
-[package.metadata.docs.rs]
-all-features = true
-
 [dependencies]
-custom-format-macros = { version = "0.1.2", path = "custom-format-macros", default-features = false }
+custom-format-macros = { version = "0.1.2", path = "custom-format-macros" }
 
 [features]
-# Compile-time formatting
 compile-time = []
-
-# Runtime formatting
 runtime = []
-
-# Better parsing (longer compile time)
-better-parsing = ["custom-format-macros/better-parsing"]
-
-# Default
-default = ["compile-time", "runtime", "better-parsing"]
+default = ["compile-time", "runtime"]
