@@ -1,6 +1,7 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! This crate extends the standard formatting syntax with custom format specifiers, by providing custom formatting macros.
 //!
@@ -23,9 +24,11 @@
 //!     See the [`runtime::CustomFormat`](crate::runtime::CustomFormat) trait.
 
 #[cfg(feature = "compile-time")]
+#[cfg_attr(docsrs, doc(cfg(feature = "compile-time")))]
 pub mod compile_time;
 
 #[cfg(feature = "runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "runtime")))]
 pub mod runtime;
 
 #[doc(hidden)]

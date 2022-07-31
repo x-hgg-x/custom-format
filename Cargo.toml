@@ -13,6 +13,10 @@ keywords = ["no-std", "format", "string", "fmt", "macro"]
 categories = ["no-std", "rust-patterns", "value-formatting"]
 readme = "README.md"
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 custom-format-macros = { version = "0.1.2", path = "custom-format-macros" }
 
