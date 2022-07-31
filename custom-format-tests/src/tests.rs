@@ -1,6 +1,16 @@
 use custom_format as cfmt;
 
 #[test]
+fn test_format_args() {
+    println!("{}", cfmt::format_args!("string"));
+    println!("{}", cfmt::format_args!("{}", "string"));
+    cfmt::println!("{}", format_args!("string"));
+    cfmt::println!("{}", format_args!("{}", "string"));
+    cfmt::println!("{}", cfmt::format_args!("string"));
+    cfmt::println!("{}", cfmt::format_args!("{}", "string"));
+}
+
+#[test]
 fn test_print() {
     cfmt::print!("string\n");
     cfmt::print!("{}", "string\n");

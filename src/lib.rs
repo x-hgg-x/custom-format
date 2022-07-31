@@ -59,6 +59,130 @@ macro_rules! fmt_inner {
     }};
 }
 
+/// Constructs parameters for the other string-formatting macros.
+///
+/// ## Important note
+///
+/// The other macros in this crate use an inner `match` to avoid reevaluating the input arguments several times.
+///
+/// For example, the following `println!` call:
+///
+/// ```rust
+/// use custom_format as cfmt;
+/// use core::fmt;
+///
+/// #[derive(Debug)]
+/// struct Hex(u8);
+///
+/// impl cfmt::runtime::CustomFormat for Hex {
+///     fn fmt(&self, f: &mut fmt::Formatter, _: &str) -> fmt::Result {
+///         write!(f, "{:#02x}", self.0)
+///     }
+/// }
+///
+/// fn call() -> Hex {
+///     Hex(42)
+/// }
+///
+/// cfmt::println!("{0:?}, {res :<x>}", res = call());
+/// ```
+///
+/// is expanded to:
+///
+/// ```rust
+/// # use custom_format as cfmt;
+/// # use core::fmt;
+/// # #[derive(Debug)]
+/// # struct Hex(u8);
+/// # impl cfmt::runtime::CustomFormat for Hex {
+/// #     fn fmt(&self, f: &mut fmt::Formatter, _: &str) -> fmt::Result {
+/// #         write!(f, "{:#02x}", self.0)
+/// #     }
+/// # }
+/// # fn call() -> Hex { Hex(42) }
+/// match (&(call())) {
+///     (arg0) => ::std::println!("{0:?}, {1}", arg0, cfmt::runtime::CustomFormatter::new("x", arg0)),
+/// }
+/// ```
+///
+/// This method doesn't work with the `format_args!` macro, since it returns a value of type [`core::fmt::Arguments`]
+/// which borrows the temporary values of the `match`. Since these temporary values are dropped before returning,
+/// the return value cannot be used at all if the format string contains format specifiers.
+///
+/// For this reason, the `format_args!` macro is expanded in another way. The following call:
+///
+/// ```rust
+/// # use custom_format as cfmt;
+/// # use core::fmt;
+/// # #[derive(Debug)]
+/// # struct Hex(u8);
+/// # impl cfmt::runtime::CustomFormat for Hex {
+/// #     fn fmt(&self, f: &mut fmt::Formatter, _: &str) -> fmt::Result {
+/// #         write!(f, "{:#02x}", self.0)
+/// #     }
+/// # }
+/// # fn call() -> Hex { Hex(42) }
+/// println!("{}", cfmt::format_args!("{0:?}, {res :<x>}", res = call()));
+/// ```
+///
+/// must be expanded to:
+///
+/// ```rust
+/// # use custom_format as cfmt;
+/// # use core::fmt;
+/// # #[derive(Debug)]
+/// # struct Hex(u8);
+/// # impl cfmt::runtime::CustomFormat for Hex {
+/// #     fn fmt(&self, f: &mut fmt::Formatter, _: &str) -> fmt::Result {
+/// #         write!(f, "{:#02x}", self.0)
+/// #     }
+/// # }
+/// # fn call() -> Hex { Hex(42) }
+/// println!("{}", ::core::format_args!("{0:?}, {1}", &(call()), cfmt::runtime::CustomFormatter::new("x", &(call()))));
+/// ```
+///
+/// which reevaluates the input arguments if they are used several times in the format string.
+///
+/// To avoid unnecessary reevaluations, we can store the expression result in a variable beforehand:
+///
+/// ```rust
+/// # use custom_format as cfmt;
+/// # use core::fmt;
+/// # #[derive(Debug)]
+/// # struct Hex(u8);
+/// # impl cfmt::runtime::CustomFormat for Hex {
+/// #     fn fmt(&self, f: &mut fmt::Formatter, _: &str) -> fmt::Result {
+/// #         write!(f, "{:#02x}", self.0)
+/// #     }
+/// # }
+/// # fn call() -> Hex { Hex(42) }
+/// let res = call();
+/// println!("{}", cfmt::format_args!("{res:?}, {res :<x>}"));
+/// ```
+///
+/// is expanded to:
+///
+/// ```rust
+/// # use custom_format as cfmt;
+/// # use core::fmt;
+/// # #[derive(Debug)]
+/// # struct Hex(u8);
+/// # impl cfmt::runtime::CustomFormat for Hex {
+/// #     fn fmt(&self, f: &mut fmt::Formatter, _: &str) -> fmt::Result {
+/// #         write!(f, "{:#02x}", self.0)
+/// #     }
+/// # }
+/// # fn call() -> Hex { Hex(42) }
+/// # let res = call();
+/// println!("{}", ::core::format_args!("{0:?}, {1}", &res, cfmt::runtime::CustomFormatter::new("x", &res)))
+/// ```
+#[macro_export]
+macro_rules! format_args {
+    ($($arg:tt)*) => {{
+        $crate::fmt_inner!([::core::format_args!], [], $($arg)*)
+    }};
+}
+
 /// Creates a `String` using interpolation of runtime expressions
 #[macro_export]
 macro_rules! format {
