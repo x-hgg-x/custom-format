@@ -31,6 +31,8 @@ struct Argument {
 /// Parsed input elements
 #[derive(Debug)]
 struct ParsedInput {
+    /// Crate identifier (`$crate`)
+    crate_ident: Ident,
     /// Root macro tokens
     root_macro: TokenStream,
     /// First argument tokens

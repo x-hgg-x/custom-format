@@ -41,7 +41,7 @@ macro_rules! parse_args {
         $crate::parse_args!([$($macro)*], [$($first_arg)?], [$($result,)* $expr], $($arg)*)
     }};
     ([$($macro:tt)*], [$($first_arg:expr)?], [$($result:expr),*], $(,)?) => {{
-        $crate::custom_format_macros::fmt!([$($macro)*], [$($first_arg)?], [$($result),*])
+        $crate::custom_format_macros::fmt!($crate, [$($macro)*], [$($first_arg)?], [$($result),*])
     }};
 }
 
@@ -52,7 +52,7 @@ macro_rules! fmt_inner {
         compile_error!("requires at least a format string argument")
     }};
     ([$($macro:tt)*], [$($first_arg:expr)?], $fmt:literal) => {{
-        $crate::custom_format_macros::fmt!([$($macro)*], [$($first_arg)?], [$fmt])
+        $crate::custom_format_macros::fmt!($crate, [$($macro)*], [$($first_arg)?], [$fmt])
     }};
     ([$($macro:tt)*], [$($first_arg:expr)?], $fmt:literal, $($arg:tt)*) => {{
         $crate::parse_args!([$($macro)*], [$($first_arg)?], [$fmt], $($arg)*,)

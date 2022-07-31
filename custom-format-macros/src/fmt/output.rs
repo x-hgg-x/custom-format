@@ -1,3 +1,5 @@
+//! Functions used for computing output tokens.
+
 use super::*;
 
 use std::iter::FromIterator;
@@ -8,19 +10,17 @@ fn push_two_colons(v: &mut Vec<TokenTree>) {
     v.push(Punct::new(':', Spacing::Alone).into());
 }
 
-/// Push `::custom_format::custom_formatter!` to the list of token trees
-fn push_compile_time_formatter(v: &mut Vec<TokenTree>) {
-    push_two_colons(v);
-    v.push(Ident::new("custom_format", Span::call_site()).into());
+/// Push `$crate::custom_formatter!` to the list of token trees
+fn push_compile_time_formatter(v: &mut Vec<TokenTree>, crate_ident: &Ident) {
+    v.push(crate_ident.clone().into());
     push_two_colons(v);
     v.push(Ident::new("custom_formatter", Span::call_site()).into());
     v.push(Punct::new('!', Spacing::Alone).into());
 }
 
-/// Push `::custom_format::runtime::CustomFormatter::new` to the list of token trees
-fn push_runtime_formatter(v: &mut Vec<TokenTree>) {
-    push_two_colons(v);
-    v.push(Ident::new("custom_format", Span::call_site()).into());
+/// Push `$crate::runtime::CustomFormatter::new` to the list of token trees
+fn push_runtime_formatter(v: &mut Vec<TokenTree>, crate_ident: &Ident) {
+    v.push(crate_ident.clone().into());
     push_two_colons(v);
     v.push(Ident::new("runtime", Span::call_site()).into());
     push_two_colons(v);
@@ -31,6 +31,8 @@ fn push_runtime_formatter(v: &mut Vec<TokenTree>) {
 
 /// Compute output Rust code
 pub(super) fn compute_output(parsed_input: ParsedInput, new_format_string: &str, processed_pieces: ProcessedPieces) -> TokenStream {
+    let crate_ident = parsed_input.crate_ident;
+
     let arg_count = parsed_input.arguments.len() + processed_pieces.new_args.len();
     let arg_idents: Vec<TokenTree> = (0..arg_count).map(|index| Ident::new(&format!("arg{}", index), Span::call_site()).into()).collect();
 
@@ -95,11 +97,11 @@ pub(super) fn compute_output(parsed_input: ParsedInput, new_format_string: &str,
                     Some(spec) => {
                         let spec_literal = match spec {
                             Spec::CompileTime(spec) => {
-                                push_compile_time_formatter(&mut fmt_args);
+                                push_compile_time_formatter(&mut fmt_args, &crate_ident);
                                 Literal::string(spec)
                             }
                             Spec::Runtime(spec) => {
-                                push_runtime_formatter(&mut fmt_args);
+                                push_runtime_formatter(&mut fmt_args, &crate_ident);
                                 Literal::string(spec)
                             }
                         };
@@ -156,12 +158,18 @@ mod test {
         let result = concat!(
             r#"match (&("0"), &("1"), &("2"), &("3"), &h, &g) { (arg0, arg1, arg2, arg3, arg4, arg5) => "#,
             r#"::std::println!("{0}, {1}, {2}, {3}, {4}, {5}, {6:.7$}, {8:9$}", arg4, "#,
-            r#"::custom_format::custom_formatter!("%z", arg4), arg1, arg1, arg3, "#,
-            r#"::custom_format::runtime::CustomFormatter::new("%x", arg2), arg1, arg0, arg3, arg5), }"#
+            r#"crate::custom_formatter!("%z", arg4), arg1, arg1, arg3, "#,
+            r#"crate::runtime::CustomFormatter::new("%x", arg2), arg1, arg0, arg3, arg5), }"#
         );
 
         let output = compute_output(
-            ParsedInput { root_macro: "::std::println!".parse()?, first_arg: None, arguments, span: Span::call_site() },
+            ParsedInput {
+                crate_ident: Ident::new("crate", Span::call_site()),
+                root_macro: "::std::println!".parse()?,
+                first_arg: None,
+                arguments,
+                span: Span::call_site(),
+            },
             new_format_string,
             ProcessedPieces { arg_indices, new_args },
         );
@@ -174,7 +182,13 @@ mod test {
     #[test]
     fn test_compute_output_with_first_arg() -> Result<(), Box<dyn std::error::Error>> {
         let output = compute_output(
-            ParsedInput { root_macro: "::std::writeln!".parse()?, first_arg: Some("f".parse()?), arguments: vec![], span: Span::call_site() },
+            ParsedInput {
+                crate_ident: Ident::new("crate", Span::call_site()),
+                root_macro: "::std::writeln!".parse()?,
+                first_arg: Some("f".parse()?),
+                arguments: vec![],
+                span: Span::call_site(),
+            },
             "string",
             ProcessedPieces { arg_indices: vec![], new_args: vec![] },
         );

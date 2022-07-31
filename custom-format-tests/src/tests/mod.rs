@@ -166,8 +166,24 @@ fn test_spec() {
 
 #[cfg(feature = "runtime")]
 #[test]
+fn test_custom_formatter_runtime() {
+    use core::fmt;
+
+    struct Custom;
+
+    impl cfmt::runtime::CustomFormat for Custom {
+        fn fmt(&self, f: &mut fmt::Formatter, spec: &str) -> fmt::Result {
+            write!(f, "{}", spec)
+        }
+    }
+
+    assert_eq!(cfmt::format!("{ :<x>}", Custom), "x");
+}
+
+#[cfg(feature = "runtime")]
+#[test]
 #[should_panic(expected = "a formatting trait implementation returned an error: Error")]
-fn test_custom_formatter_panic() {
+fn test_custom_formatter_runtime_panic() {
     use core::fmt;
 
     struct Hex(u8);

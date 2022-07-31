@@ -1,3 +1,5 @@
+//! Functions used for processing input.
+
 use super::utils::StrCursor;
 use super::*;
 
@@ -9,6 +11,17 @@ pub(super) fn parse_tokens(input: TokenStream) -> Result<(String, ParsedInput), 
     let token_trees: Vec<_> = input.into_iter().collect();
 
     let mut args_iter = token_trees.split(|token| matches!(token, TokenTree::Punct(punct) if punct.as_char() == ',' ));
+
+    let crate_ident = match args_iter.next() {
+        Some([TokenTree::Ident(ident)]) => ident.clone(),
+        _ => return Err(compile_error("invalid tokens", Span::call_site())),
+    };
+
+    // A `$crate` identifier is impossible to construct with `proc_macro2::Ident`
+    #[cfg(not(test))]
+    if &crate_ident.to_string() != "$crate" {
+        return Err(compile_error("invalid tokens", Span::call_site()));
+    }
 
     let root_macro = match args_iter.next() {
         Some([TokenTree::Group(group)]) => group.stream(),
@@ -78,7 +91,7 @@ pub(super) fn parse_tokens(input: TokenStream) -> Result<(String, ParsedInput), 
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok((format_string, ParsedInput { root_macro, first_arg, arguments, span }))
+    Ok((format_string, ParsedInput { crate_ident, root_macro, first_arg, arguments, span }))
 }
 
 /// Process formatting argument
@@ -305,18 +318,21 @@ mod test {
     #[test]
     fn test_parse_tokens() -> Result<(), Box<dyn std::error::Error>> {
         let s1 = r#"
+            crate,
             [::std::format!], [],
             [("format string"), (5==3), (()), (Custom(1f64.abs())), (std::format!("{:?}, {}", (3, 4), 5)),
             ((z) = (::std::f64::MAX)), ((r) = (&1 + 4)), ((b) = (2)), ((c) = (Custom(6))), ((e) = ({ g }))]
         "#;
 
         let s2 = r##"
+            crate,
             [::std::format!], [std::io::stdout().lock()],
             [(r#"format string"#), (5==3), (()), (Custom(1f64.abs())), (std::format!("{:?}, {}", (3, 4), 5)),
             ((z) = (::std::f64::MAX)), ((r) = (&1 + 4)), ((b) = (2)), ((c) = (Custom(6))), ((e) = ({ g }))]
         "##;
 
         let result_format_string = "format string";
+        let result_crate_ident = "crate";
         let result_root_macro = "::std::format!".parse::<TokenStream>()?.to_string();
         let results_first_arg = [None, Some("std::io::stdout().lock()".parse::<TokenStream>()?.to_string())];
         let result_argument_names = [None, None, None, None, Some("z"), Some("r"), Some("b"), Some("c"), Some("e")];
@@ -337,6 +353,7 @@ mod test {
             let (format_string, parsed_input) = parse_tokens(s.parse()?).unwrap();
 
             assert_eq!(format_string, result_format_string);
+            assert_eq!(parsed_input.crate_ident.to_string(), result_crate_ident);
             assert_eq!(parsed_input.root_macro.to_string(), result_root_macro);
             assert_eq!(parsed_input.first_arg.map(|x| x.to_string()), *result_first_arg);
 
@@ -346,7 +363,7 @@ mod test {
             }
         }
 
-        let err = parse_tokens("[::std::format!], [], [(42)]".parse()?).unwrap_err();
+        let err = parse_tokens("crate, [::std::format!], [], [(42)]".parse()?).unwrap_err();
         assert!(err.to_string().starts_with("compile_error"));
         assert_ne!(err.into_iter().last().unwrap().to_string(), "(\"invalid tokens\")");
 
