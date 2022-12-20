@@ -3,7 +3,7 @@ members = ["custom-format-macros", "custom-format-tests"]
 
 [package]
 name = "custom-format"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2018"
 authors = ["x-hgg-x"]
 repository = "https://github.com/x-hgg-x/custom-format"
@@ -18,7 +18,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-custom-format-macros = { version = "0.2.0", path = "custom-format-macros" }
+custom-format-macros = { version = "0.3.0", path = "custom-format-macros" }
 
 [features]
 compile-time = []

@@ -1,6 +1,6 @@
 [package]
 name = "custom-format-macros"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2018"
 authors = ["x-hgg-x"]
 repository = "https://github.com/x-hgg-x/custom-format"
@@ -14,9 +14,9 @@ readme = "../README.md"
 proc-macro = true
 
 [dependencies]
-litrs = { version = "0.2.3", default-features = false }
+litrs = { version = "0.3.0", default-features = false }
 unicode-ident = "1.0"
 
 [dev-dependencies]
 proc-macro2 = "1.0"
-unicode-normalization = { version = "0.1.21", default-features = false }
+unicode-normalization = { version = "0.1.22", default-features = false }

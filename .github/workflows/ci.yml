@@ -54,11 +54,7 @@ jobs:
   test:
     strategy:
       matrix:
-        rust: [1.48, 1.51, stable, nightly]
-        include:
-          - features: "--features=default"
-          - rust: 1.48
-            features: "--no-default-features --features=runtime"
+        rust: [1.54, stable, nightly]
 
     name: 'Test/${{ matrix.rust }}/Features="${{ matrix.features }}"'
 
@@ -77,8 +73,8 @@ jobs:
 
       - name: Test
         run: |
-          cargo test ${{ matrix.features }}
+          cargo test
           sh -c "cd custom-format-macros && cargo test"
-          sh -c "cd custom-format-tests  && cargo test ${{ matrix.features }}"
+          sh -c "cd custom-format-tests  && cargo test"
         env:
           CARGO_NET_GIT_FETCH_WITH_CLI: true

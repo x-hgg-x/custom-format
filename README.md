@@ -1,7 +1,7 @@
 # custom-format
 
 [![version](https://img.shields.io/crates/v/custom-format?color=blue&style=flat-square)](https://crates.io/crates/custom-format)
-![Minimum supported Rust version](https://img.shields.io/badge/rustc-1.48+-important?logo=rust "Minimum Supported Rust Version")
+![Minimum supported Rust version](https://img.shields.io/badge/rustc-1.54+-important?logo=rust "Minimum Supported Rust Version")
 [![Documentation](https://docs.rs/custom-format/badge.svg)](https://docs.rs/custom-format)
 
 This crate extends the standard formatting syntax with custom format specifiers, by providing custom formatting macros.
@@ -18,7 +18,7 @@ This library comes in two flavors, corresponding to the following features:
 - `runtime` (*enabled by default*)
 
     The formatting method dynamically checks the format specifier at runtime for each invocation.
-    This is a slower version, but has a lower MSRV for greater compatibility.
+    This is a slower version, but it has additional flexibility.
 
 ## Documentation
 
@@ -151,7 +151,7 @@ cfmt::println!(
 
 ## Compiler support
 
-Requires `rustc 1.48+` for the `runtime` feature and `rustc 1.51+` for the `compile-time` feature.
+Requires `rustc 1.54+`.
 
 ## License
 
