@@ -133,8 +133,8 @@ fn test_custom_formatter() {
     }
 
     impl_custom_format!(match spec {
-        "" => |this, f| write!(f, "({} with spec '{}')", this.0, ""),
-        "3xxGxx" => |this, f| write!(f, "({} with spec '{}')", this.0, "3xxGxx"),
+        "" => |this, f| write!(f, "({} with spec '')", this.0),
+        "3xxGxx" => |this, f| write!(f, "({} with spec '3xxGxx')", this.0),
     });
 
     impl<T: fmt::Display> cfmt::runtime::CustomFormat for Custom<T> {
