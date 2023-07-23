@@ -4,7 +4,7 @@ members = ["custom-format-macros", "custom-format-tests"]
 [package]
 name = "custom-format"
 version = "0.3.0"
-edition = "2018"
+edition = "2021"
 authors = ["x-hgg-x"]
 repository = "https://github.com/x-hgg-x/custom-format"
 description = "Custom formatting for Rust."
