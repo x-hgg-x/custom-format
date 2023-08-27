@@ -15,13 +15,13 @@
 //!
 //!     The set of possible custom format specifiers is defined at compilation, so invalid specifiers can be checked at compile-time.
 //!     This allows the library to have the same performance as when using the standard library formatting traits.
-//!     See the [`compile_time::CustomFormat`](crate::compile_time::CustomFormat) trait.
+//!     See the [`compile_time::CustomFormat`] trait.
 //!
 //! - `runtime` (*enabled by default*)
 //!
 //!     The formatting method dynamically checks the format specifier at runtime for each invocation.
 //!     This is a slower version, but has a lower MSRV for greater compatibility.
-//!     See the [`runtime::CustomFormat`](crate::runtime::CustomFormat) trait.
+//!     See the [`runtime::CustomFormat`] trait.
 
 #[cfg(feature = "compile-time")]
 #[cfg_attr(docsrs, doc(cfg(feature = "compile-time")))]
