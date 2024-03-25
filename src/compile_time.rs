@@ -93,7 +93,7 @@ pub const fn spec(s: &str) -> u128 {
     let len = s.len();
 
     if len > 16 {
-        #[allow(unconditional_panic)]
+        #[allow(unconditional_panic, clippy::out_of_bounds_indexing)]
         let _ = ["format specifier is limited to 16 bytes"][usize::MAX];
     }
 
