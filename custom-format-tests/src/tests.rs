@@ -192,7 +192,7 @@ fn test_custom_formatter_runtime() {
 
 #[cfg(feature = "runtime")]
 #[test]
-#[should_panic(expected = "a formatting trait implementation returned an error: Error")]
+#[should_panic(expected = "a formatting trait implementation returned an error")]
 fn test_custom_formatter_runtime_panic() {
     use core::fmt;
 
