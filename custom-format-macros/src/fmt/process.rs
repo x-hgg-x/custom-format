@@ -206,7 +206,7 @@ fn process_fmt<'a>(
 }
 
 /// Parse format string
-pub(super) fn parse_format_string(format_string: &str) -> Result<(String, Vec<Piece>), Error> {
+pub(super) fn parse_format_string(format_string: &str) -> Result<(String, Vec<Piece<'_>>), Error> {
     let mut cursor = StrCursor::new(format_string);
     let mut current_positional_index = 0;
 
