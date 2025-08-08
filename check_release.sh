@@ -8,6 +8,6 @@ run() {
     sh -c "cd custom-format-tests  && cargo +$RUSTC test"
 }
 
-run 1.56
+run 1.85
 run stable
 run nightly

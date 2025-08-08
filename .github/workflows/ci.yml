@@ -54,7 +54,7 @@ jobs:
   test:
     strategy:
       matrix:
-        rust: [1.56, stable, nightly]
+        rust: ["1.85", stable, nightly]
 
     name: 'Test/${{ matrix.rust }}/Features="${{ matrix.features }}"'
 
