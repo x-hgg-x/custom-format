@@ -50,7 +50,7 @@ pub(super) fn parse_tokens(input: TokenStream) -> Result<(String, ParsedInput), 
                 (Some(tt), None) => {
                     let span = tt.span();
                     match litrs::StringLit::parse(tt.to_string()) {
-                        Ok(lit) => (lit.into_value().into_owned(), span),
+                        Ok(lit) => (lit.into_value(), span),
                         Err(e) => return Err(compile_error(&e.to_string(), span)),
                     }
                 }
