@@ -75,9 +75,9 @@ impl<'a, T, const SPEC: u128> CustomFormatter<'a, T, SPEC> {
 /// Helper macro for constructing a new [`compile_time::CustomFormatter`](CustomFormatter) value from a format specifier
 #[macro_export]
 macro_rules! custom_formatter {
-    ($spec:literal, $value:expr) => {{
+    ($spec:literal, $value:expr) => {
         $crate::compile_time::CustomFormatter::<_, { $crate::compile_time::spec($spec) }>::new($value)
-    }};
+    };
 }
 pub use custom_formatter;
 

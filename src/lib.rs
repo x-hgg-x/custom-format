@@ -37,29 +37,29 @@ pub use custom_format_macros;
 #[doc(hidden)]
 #[macro_export]
 macro_rules! parse_args {
-    ([$($macro:tt)*], [$($first_arg:expr)?], [$($result:expr),*], $id:ident = $expr:expr, $($arg:tt)*) => {{
+    ([$($macro:tt)*], [$($first_arg:expr)?], [$($result:expr),*], $id:ident = $expr:expr, $($arg:tt)*) => {
         $crate::parse_args!([$($macro)*], [$($first_arg)?], [$($result,)* ($id) = $expr], $($arg)*)
-    }};
-    ([$($macro:tt)*], [$($first_arg:expr)?], [$($result:expr),*], $expr:expr, $($arg:tt)*) => {{
+    };
+    ([$($macro:tt)*], [$($first_arg:expr)?], [$($result:expr),*], $expr:expr, $($arg:tt)*) => {
         $crate::parse_args!([$($macro)*], [$($first_arg)?], [$($result,)* $expr], $($arg)*)
-    }};
-    ([$($macro:tt)*], [$($first_arg:expr)?], [$($result:expr),*], $(,)?) => {{
+    };
+    ([$($macro:tt)*], [$($first_arg:expr)?], [$($result:expr),*], $(,)?) => {
         $crate::custom_format_macros::fmt!($crate, [$($macro)*], [$($first_arg)?], [$($result),*])
-    }};
+    };
 }
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! fmt_inner {
-    ([$($macro:tt)*], [$($first_arg:expr)?], ) => {{
+    ([$($macro:tt)*], [$($first_arg:expr)?], ) => {
         compile_error!("requires at least a format string argument")
-    }};
-    ([$($macro:tt)*], [$($first_arg:expr)?], $fmt:literal) => {{
+    };
+    ([$($macro:tt)*], [$($first_arg:expr)?], $fmt:literal) => {
         $crate::custom_format_macros::fmt!($crate, [$($macro)*], [$($first_arg)?], [$fmt])
-    }};
-    ([$($macro:tt)*], [$($first_arg:expr)?], $fmt:literal, $($arg:tt)*) => {{
+    };
+    ([$($macro:tt)*], [$($first_arg:expr)?], $fmt:literal, $($arg:tt)*) => {
         $crate::parse_args!([$($macro)*], [$($first_arg)?], [$fmt], $($arg)*,)
-    }};
+    };
 }
 
 /// Constructs parameters for the other string-formatting macros.
@@ -181,83 +181,83 @@ macro_rules! fmt_inner {
 /// ```
 #[macro_export]
 macro_rules! format_args {
-    ($($arg:tt)*) => {{
+    ($($arg:tt)*) => {
         $crate::fmt_inner!([::core::format_args!], [], $($arg)*)
-    }};
+    };
 }
 
 /// Creates a `String` using interpolation of runtime expressions
 #[macro_export]
 macro_rules! format {
-    ($($arg:tt)*) => {{
+    ($($arg:tt)*) => {
         $crate::fmt_inner!([::std::format!], [], $($arg)*)
-    }};
+    };
 }
 
 /// Prints to the standard output
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => {{
+    ($($arg:tt)*) => {
         $crate::fmt_inner!([::std::print!], [], $($arg)*)
-    }};
+    };
 }
 
 /// Prints to the standard output, with a newline
 #[macro_export]
 macro_rules! println {
-    () => {{
+    () => {
         ::std::println!()
-    }};
-    ($($arg:tt)*) => {{
+    };
+    ($($arg:tt)*) => {
         $crate::fmt_inner!([::std::println!], [], $($arg)*)
-    }};
+    };
 }
 
 /// Prints to the standard error
 #[macro_export]
 macro_rules! eprint {
-    ($($arg:tt)*) => {{
+    ($($arg:tt)*) => {
         $crate::fmt_inner!([::std::eprint!], [], $($arg)*)
-    }};
+    };
 }
 
 /// Prints to the standard error, with a newline
 #[macro_export]
 macro_rules! eprintln {
-    () => {{
+    () => {
         ::std::eprintln!()
-    }};
-    ($($arg:tt)*) => {{
+    };
+    ($($arg:tt)*) => {
         $crate::fmt_inner!([::std::eprintln!], [], $($arg)*)
-    }};
+    };
 }
 
 /// Writes formatted data into a buffer
 #[macro_export]
 macro_rules! write {
-    ($dst:expr, $($arg:tt)*) => {{
+    ($dst:expr, $($arg:tt)*) => {
         $crate::fmt_inner!([::core::write!], [$dst], $($arg)*)
-    }};
+    };
 }
 
 /// Write formatted data into a buffer, with a newline appended
 #[macro_export]
 macro_rules! writeln {
-    ($dst:expr) => {{
+    ($dst:expr) => {
         ::core::writeln!($dst)
-    }};
-    ($dst:expr, $($arg:tt)*) => {{
+    };
+    ($dst:expr, $($arg:tt)*) => {
         $crate::fmt_inner!([::core::writeln!], [$dst], $($arg)*)
-    }};
+    };
 }
 
 /// Panics the current thread
 #[macro_export]
 macro_rules! panic {
-    () => {{
+    () => {
         ::core::panic!()
-    }};
-    ($($arg:tt)*) => {{
+    };
+    ($($arg:tt)*) => {
         $crate::fmt_inner!([::core::panic!], [], $($arg)*)
-    }};
+    };
 }

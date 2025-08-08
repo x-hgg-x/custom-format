@@ -301,7 +301,7 @@ pub(super) fn process_pieces<'a>(pieces: Vec<Piece<'a>>, arguments: &[Argument])
         }
     }
 
-    if let Some((index, (arg, _))) = arguments.iter().zip(&used_args).enumerate().find(|(_, (_, &used))| !used) {
+    if let Some((index, (arg, _))) = arguments.iter().zip(&used_args).enumerate().find(|&(_, (_, &used))| !used) {
         return match &arg.ident {
             Some(name) => Err(format!("named argument `{}` not used", name).into()),
             None => Err(format!("positional argument {} not used", index).into()),
