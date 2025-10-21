@@ -3,7 +3,7 @@ members = ["custom-format-macros", "custom-format-tests"]
 
 [package]
 name = "custom-format"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 authors = ["x-hgg-x"]
 repository = "https://github.com/x-hgg-x/custom-format"
